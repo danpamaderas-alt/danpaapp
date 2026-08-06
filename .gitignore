@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 node_modules/
 build/
 dist/
@@ -10,3 +11,13 @@ coverage/
 # Herramientas de agente y sobras de plantilla
 .agents/
 assets/
+=======
+# Node.js
+node_modules/
+.env
+package-lock.json
+
+# React
+.next/
+public/
+>>>>>>> 492655ff79386c993c56b5a31afa693a613ecf1b
