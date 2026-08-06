@@ -15,7 +15,7 @@ import {
   LogOut,
   type LucideIcon,
 } from 'lucide-react';
-import { supabase } from './lib/supabase';
+import { supabase, isSupabaseConfigured } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import Dashboard from './components/Dashboard';
 import ProductosView from './components/ProductosView';
@@ -101,6 +101,25 @@ export default function App() {
     await supabase.auth.signOut();
     setCorredor(null);
   };
+
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
+        <div className="bg-[var(--surface)] p-8 rounded-xl border border-[var(--border)] max-w-lg w-full text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-[var(--text)] mb-2">Faltan Variables de Entorno</h1>
+          <p className="text-[var(--text2)] text-sm mb-4">
+            La aplicación no encuentra las credenciales de Supabase.
+          </p>
+          <div className="bg-[var(--bg)] p-4 rounded-lg text-left font-mono text-xs text-[var(--text2)] space-y-1 mb-4 overflow-x-auto">
+            <p className="text-[var(--text)] font-semibold mb-1">Debes configurar en Vercel / Netlify / .env:</p>
+            <p>VITE_SUPABASE_URL=https://tu-proyecto.supabase.co</p>
+            <p>VITE_SUPABASE_ANON_KEY=tu_anon_key</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (authLoading || (session && perfilCargando)) {
     return (

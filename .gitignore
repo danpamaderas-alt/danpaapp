@@ -1,23 +1,13 @@
-<<<<<<< HEAD
 node_modules/
 build/
 dist/
 coverage/
 .DS_Store
 *.log
-.env*
-!.env.example
-
-# Herramientas de agente y sobras de plantilla
-.agents/
-assets/
-=======
-# Node.js
-node_modules/
 .env
-package-lock.json
+.env.local
+.env.*.local
 
-# React
-.next/
-public/
->>>>>>> 492655ff79386c993c56b5a31afa693a613ecf1b
+# Herramientas de agente
+.agents/
+
