@@ -7,6 +7,7 @@ import {
   Users,
   Wallet,
   CalendarCheck2,
+  UserCog,
   Loader2,
   AlertCircle,
   Sun,
@@ -23,11 +24,12 @@ import MisPedidos from './components/MisPedidos';
 import ClientesView from './components/ClientesView';
 import FinanzasView from './components/FinanzasView';
 import VisitasView from './components/VisitasView';
+import UsuariosView from './components/UsuariosView';
 import Login from './components/Login';
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
 
-type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas';
+type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'usuarios';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -148,6 +150,9 @@ export default function App() {
             {(
               [
                 { id: 'dashboard', label: 'Resumen', Icon: PackageOpen },
+                ...(corredor.perfil === 'admin'
+                  ? [{ id: 'usuarios', label: 'Usuarios', Icon: UserCog }]
+                  : []),
                 { id: 'productos', label: 'Productos & Stock', Icon: TreePine },
                 { id: 'nuevoPedido', label: 'Nuevo Pedido', Icon: PlusCircle },
                 { id: 'pedidos', label: 'Mis Pedidos', Icon: ListOrdered },
@@ -201,6 +206,7 @@ export default function App() {
 
       <div className="ml-[260px] flex-1 flex flex-col min-w-0">
         {currentView === 'dashboard' && <Dashboard corredorId={corredorId} />}
+        {corredor.perfil === 'admin' && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
         {currentView === 'productos' && <ProductosView />}
         {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}
         {currentView === 'pedidos' && <MisPedidos corredorId={corredorId} />}

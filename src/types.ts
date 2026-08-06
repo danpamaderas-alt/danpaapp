@@ -305,7 +305,39 @@ export interface Database {
       };
     };
     Views: {};
-    Functions: {};
+    Functions: {
+      is_admin: {
+        Args: Record<string, never>;
+        Returns: boolean;
+      };
+      admin_listar_usuarios: {
+        Args: Record<string, never>;
+        Returns: Array<Database['public']['Tables']['usuarios']['Row']>;
+      };
+      admin_crear_usuario: {
+        Args: {
+          p_nombre: string;
+          p_email: string;
+          p_password: string;
+          p_perfil: string;
+        };
+        Returns: string;
+      };
+      admin_set_activo: {
+        Args: {
+          p_user_id: string;
+          p_activo: boolean;
+        };
+        Returns: undefined;
+      };
+      admin_set_password: {
+        Args: {
+          p_user_id: string;
+          p_password: string;
+        };
+        Returns: undefined;
+      };
+    };
     Enums: {};
   };
 }
