@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { GOD_MODE } from '../lib/god';
 import type { Database } from '../types';
 import {
   UserCog,
@@ -39,7 +40,9 @@ export default function UsuariosView({ corredorId }: { corredorId: string }) {
     try {
       setLoading(true);
       setError(null);
-      const { data, error: e } = await supabase.rpc('admin_listar_usuarios');
+      const { data, error: e } = GOD_MODE
+        ? await supabase.from('usuarios').select('*').order('created_at', { ascending: false })
+        : await supabase.rpc('admin_listar_usuarios');
       if (e) throw e;
       setUsuarios((data as Usuario[]) || []);
     } catch (err: any) {
@@ -71,12 +74,25 @@ export default function UsuariosView({ corredorId }: { corredorId: string }) {
     }
     setGuardando(true);
     setError(null);
-    const { error: e } = await supabase.rpc('admin_crear_usuario', {
-      p_nombre: nombre,
-      p_email: email,
-      p_password: form.password,
-      p_perfil: form.perfil,
-    });
+    let e: { message: string } | null = null;
+    if (GOD_MODE) {
+      const { error } = await supabase.from('usuarios').insert({
+        id: crypto.randomUUID(),
+        email,
+        nombre,
+        perfil: form.perfil,
+        activo: true,
+      });
+      e = error;
+    } else {
+      const { error } = await supabase.rpc('admin_crear_usuario', {
+        p_nombre: nombre,
+        p_email: email,
+        p_password: form.password,
+        p_perfil: form.perfil,
+      });
+      e = error;
+    }
     setGuardando(false);
     if (e) {
       setError('Error al crear el usuario: ' + e.message);
@@ -90,10 +106,17 @@ export default function UsuariosView({ corredorId }: { corredorId: string }) {
   const toggleActivo = async (u: Usuario) => {
     setOcupadoId(u.id);
     setError(null);
-    const { error: e } = await supabase.rpc('admin_set_activo', {
-      p_user_id: u.id,
-      p_activo: !u.activo,
-    });
+    let e: { message: string } | null = null;
+    if (GOD_MODE) {
+      const { error } = await supabase.from('usuarios').update({ activo: !u.activo }).eq('id', u.id);
+      e = error;
+    } else {
+      const { error } = await supabase.rpc('admin_set_activo', {
+        p_user_id: u.id,
+        p_activo: !u.activo,
+      });
+      e = error;
+    }
     setOcupadoId(null);
     if (e) {
       setError('Error al cambiar el acceso: ' + e.message);
@@ -103,6 +126,10 @@ export default function UsuariosView({ corredorId }: { corredorId: string }) {
   };
 
   const cambiarPassword = async (u: Usuario) => {
+    if (GOD_MODE) {
+      alert('En modo god no se puede cambiar contraseñas (requiere sesión de admin real).');
+      return;
+    }
     const nueva = window.prompt(`Nueva contraseña para ${u.nombre || u.email}`);
     if (nueva === null) return;
     if (nueva.length < 6) {

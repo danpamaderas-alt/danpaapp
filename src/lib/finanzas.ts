@@ -20,6 +20,11 @@ export type MovimientoInput = {
   categoria: string;
   fecha: string;
   notas?: string;
+  creado_por?: string;
+  pagador?: string;
+  cuenta?: string;
+  tiene_factura?: boolean;
+  nro_factura?: string;
 };
 
 export const CATEGORIAS = [
@@ -33,6 +38,18 @@ export const CATEGORIAS = [
   'sueldos',
   'impuestos',
   'otros',
+];
+
+// Opciones de los desplegables. Si aparece "Otro..." en el formulario
+// podés escribir un valor nuevo y quedará guardado en el movimiento.
+export const OPCIONES_PAGADOR = ['Daniel', 'Jorge', 'Gerardo'];
+export const OPCIONES_CUENTA = [
+  'Efectivo',
+  'MercadoLibre',
+  'Mercado Pago',
+  'Cuenta DNI',
+  'Transferencia',
+  'Tarjeta',
 ];
 
 export async function fetchMovimientos(filtros: FiltrosMovimientos): Promise<Movimiento[]> {
@@ -64,7 +81,11 @@ export async function crearMovimiento(input: MovimientoInput): Promise<Movimient
       categoria: input.categoria,
       fecha: input.fecha,
       notas: input.notas || null,
-      creado_por: null,
+      creado_por: input.creado_por || null,
+      pagador: input.pagador || null,
+      cuenta: input.cuenta || null,
+      tiene_factura: input.tiene_factura ?? false,
+      nro_factura: input.nro_factura || null,
     })
     .select()
     .single();
@@ -80,6 +101,53 @@ export async function actualizarMovimiento(id: string, patch: Partial<Movimiento
 
 export async function eliminarMovimiento(id: string): Promise<void> {
   const { error } = await supabase.from('movimientos').delete().eq('id', id);
+  if (error) throw new Error(getErrorMessage(error));
+}
+
+export type OpcionesFinanzas = { pagadores: string[]; cuentas: string[] };
+
+export async function fetchOpciones(corredorId: string): Promise<OpcionesFinanzas> {
+  const { data, error } = await supabase
+    .from('movimientos_opciones')
+    .select('tipo, valor')
+    .eq('corredor_id', corredorId);
+  if (error) throw new Error(getErrorMessage(error));
+
+  const pagadores: string[] = [];
+  const cuentas: string[] = [];
+  (data || []).forEach((o) => {
+    if (o.tipo === 'pagador') pagadores.push(o.valor);
+    if (o.tipo === 'cuenta') cuentas.push(o.valor);
+  });
+  return { pagadores, cuentas };
+}
+
+export type TipoOpcion = 'pagador' | 'cuenta';
+
+export async function agregarOpcion(
+  corredorId: string,
+  tipo: TipoOpcion,
+  valor: string
+): Promise<void> {
+  const v = valor.trim();
+  if (!v) return;
+  const { error } = await supabase
+    .from('movimientos_opciones')
+    .upsert({ corredor_id: corredorId, tipo, valor: v }, { onConflict: 'corredor_id,tipo,valor' });
+  if (error) throw new Error(getErrorMessage(error));
+}
+
+export async function eliminarOpcion(
+  corredorId: string,
+  tipo: TipoOpcion,
+  valor: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('movimientos_opciones')
+    .delete()
+    .eq('corredor_id', corredorId)
+    .eq('tipo', tipo)
+    .eq('valor', valor);
   if (error) throw new Error(getErrorMessage(error));
 }
 

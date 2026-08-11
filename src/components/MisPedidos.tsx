@@ -227,7 +227,7 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
 
                 {selected.estado_pago === 'pagado' ? (
                   <button
-                    onClick={() => actualizarPedido(selected.id, { estado_pago: 'no_pagado', monto_pagado: 0 })}
+                    onClick={() => actualizarPedido(selected.id, { estado_pago: 'no_pagado', monto_pagado: 0, fecha_pago: null })}
                     disabled={actualizando}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--blue-header)] disabled:opacity-50"
                   >
@@ -236,7 +236,7 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
                   </button>
                 ) : (
                   <button
-                    onClick={() => actualizarPedido(selected.id, { estado_pago: 'pagado', monto_pagado: selected.total })}
+                    onClick={() => actualizarPedido(selected.id, { estado_pago: 'pagado', monto_pagado: selected.total, fecha_pago: new Date().toISOString() })}
                     disabled={actualizando}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary-green)] text-white text-sm font-medium hover:bg-[var(--primary-green-deep)] disabled:opacity-50"
                   >

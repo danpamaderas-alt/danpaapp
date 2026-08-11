@@ -8,6 +8,8 @@ import {
   Wallet,
   CalendarCheck2,
   UserCog,
+  Briefcase,
+  Scissors,
   Loader2,
   AlertCircle,
   Sun,
@@ -24,12 +26,15 @@ import MisPedidos from './components/MisPedidos';
 import ClientesView from './components/ClientesView';
 import FinanzasView from './components/FinanzasView';
 import VisitasView from './components/VisitasView';
+import AgendaView from './components/AgendaView';
+import PodasView from './components/PodasView';
 import UsuariosView from './components/UsuariosView';
 import Login from './components/Login';
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
+import { GOD_MODE, godUsuario } from './lib/god';
 
-type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'usuarios';
+type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'podas' | 'usuarios';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -58,6 +63,7 @@ export default function App() {
   }, [dark]);
 
   useEffect(() => {
+    if (GOD_MODE) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
@@ -72,6 +78,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (GOD_MODE) return;
+
     if (!session?.user?.id) {
       setCorredor(null);
       setPerfilError(null);
@@ -121,7 +129,7 @@ export default function App() {
     );
   }
 
-  if (authLoading || (session && perfilCargando)) {
+  if (!GOD_MODE && (authLoading || (session && perfilCargando))) {
     return (
       <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center text-[var(--text)]">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
@@ -129,11 +137,11 @@ export default function App() {
     );
   }
 
-  if (!session) {
+  if (!GOD_MODE && !session) {
     return <Login />;
   }
 
-  if (!corredor || !corredor.activo || perfilError) {
+  if (!GOD_MODE && (!corredor || !corredor.activo || perfilError)) {
     return (
       <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
         <div className="bg-[var(--surface)] p-8 rounded-xl border border-[var(--border)] max-w-md w-full text-center">
@@ -154,7 +162,9 @@ export default function App() {
     );
   }
 
-  const corredorId = corredor.id;
+  const c = GOD_MODE ? godUsuario : corredor!;
+  const corredorId = c.id;
+  const esAdmin = c.perfil === 'admin';
 
   return (
     <div className="flex min-h-screen bg-[var(--bg)]">
@@ -169,7 +179,7 @@ export default function App() {
             {(
               [
                 { id: 'dashboard', label: 'Resumen', Icon: PackageOpen },
-                ...(corredor.perfil === 'admin'
+                ...(esAdmin
                   ? [{ id: 'usuarios', label: 'Usuarios', Icon: UserCog }]
                   : []),
                 { id: 'productos', label: 'Productos & Stock', Icon: TreePine },
@@ -177,6 +187,8 @@ export default function App() {
                 { id: 'pedidos', label: 'Mis Pedidos', Icon: ListOrdered },
                 { id: 'clientes', label: 'Mis Clientes', Icon: Users },
                 { id: 'visitas', label: 'Visitas', Icon: CalendarCheck2 },
+                { id: 'agenda', label: 'Contrataciones y Pliegos', Icon: Briefcase },
+                { id: 'podas', label: 'Podas de Árboles', Icon: Scissors },
                 { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
               ] as { id: View; label: string; Icon: LucideIcon }[]
             ).map(({ id, label, Icon }) => (
@@ -212,7 +224,7 @@ export default function App() {
 
         <div className="border-t border-[#2c3e50] pt-4 px-6 mb-4">
           <p className="text-xs text-[var(--muted)]">Operando como</p>
-          <p className="text-sm font-semibold text-white truncate">{corredor.nombre}</p>
+          <p className="text-sm font-semibold text-white truncate">{c.nombre}</p>
           <button
             onClick={cerrarSesion}
             className="mt-3 flex items-center gap-2 text-xs text-[var(--muted)] hover:text-white transition-colors"
@@ -225,12 +237,14 @@ export default function App() {
 
       <div className="ml-[260px] flex-1 flex flex-col min-w-0">
         {currentView === 'dashboard' && <Dashboard corredorId={corredorId} />}
-        {corredor.perfil === 'admin' && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
+        {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
         {currentView === 'productos' && <ProductosView />}
         {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}
         {currentView === 'pedidos' && <MisPedidos corredorId={corredorId} />}
         {currentView === 'clientes' && <ClientesView corredorId={corredorId} />}
         {currentView === 'visitas' && <VisitasView corredorId={corredorId} />}
+        {currentView === 'agenda' && <AgendaView corredorId={corredorId} />}
+        {currentView === 'podas' && <PodasView corredorId={corredorId} />}
         {currentView === 'finanzas' && <FinanzasView corredorId={corredorId} />}
       </div>
     </div>

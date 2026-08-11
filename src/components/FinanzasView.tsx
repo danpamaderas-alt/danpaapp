@@ -7,6 +7,11 @@ import {
   calcularSaldo,
   desglosePorCategoria,
   CATEGORIAS,
+  OPCIONES_PAGADOR,
+  OPCIONES_CUENTA,
+  fetchOpciones,
+  agregarOpcion,
+  eliminarOpcion,
   type Movimiento,
   type MovimientoInput,
 } from '../lib/finanzas';
@@ -24,6 +29,9 @@ import {
   X,
   ArrowDownCircle,
   ArrowUpCircle,
+  FileText,
+  ListPlus,
+  Check,
 } from 'lucide-react';
 
 interface FinanzasViewProps {
@@ -38,6 +46,10 @@ interface FormState {
   categoria: string;
   fecha: string;
   notas: string;
+  pagador: string;
+  cuenta: string;
+  tiene_factura: boolean;
+  nro_factura: string;
 }
 
 const emptyForm = (): FormState => ({
@@ -47,6 +59,10 @@ const emptyForm = (): FormState => ({
   categoria: 'general',
   fecha: hoyISO(),
   notas: '',
+  pagador: '',
+  cuenta: '',
+  tiene_factura: false,
+  nro_factura: '',
 });
 
 const etiquetaCategoria = (c: string) =>
@@ -64,6 +80,25 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState<Movimiento | null>(null);
+  const [opcionesDb, setOpcionesDb] = useState<{ pagadores: string[]; cuentas: string[] }>({
+    pagadores: [],
+    cuentas: [],
+  });
+  const [adminOpcionesOpen, setAdminOpcionesOpen] = useState(false);
+  const [nuevoPagador, setNuevoPagador] = useState('');
+  const [nuevaCuenta, setNuevaCuenta] = useState('');
+
+  const recargarOpciones = useCallback(async () => {
+    try {
+      setOpcionesDb(await fetchOpciones(corredorId));
+    } catch (err) {
+      console.error(err);
+    }
+  }, [corredorId]);
+
+  useEffect(() => {
+    recargarOpciones();
+  }, [recargarOpciones]);
 
   const cargar = useCallback(async () => {
     try {
@@ -95,6 +130,24 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
   const desglose = useMemo(() => desglosePorCategoria(movimientos), [movimientos]);
   const maxDesglose = Math.max(1, ...desglose.map((d) => d.egreso));
 
+  const opcionesPagador = useMemo(() => {
+    const set = new Set<string>(OPCIONES_PAGADOR);
+    opcionesDb.pagadores.forEach((p) => set.add(p));
+    movimientos.forEach((m) => {
+      if (m.pagador) set.add(m.pagador);
+    });
+    return Array.from(set);
+  }, [movimientos, opcionesDb]);
+
+  const opcionesCuenta = useMemo(() => {
+    const set = new Set<string>(OPCIONES_CUENTA);
+    opcionesDb.cuentas.forEach((c) => set.add(c));
+    movimientos.forEach((m) => {
+      if (m.cuenta) set.add(m.cuenta);
+    });
+    return Array.from(set);
+  }, [movimientos, opcionesDb]);
+
   const abrirNuevo = () => {
     setForm(emptyForm());
     setModalOpen(true);
@@ -109,6 +162,10 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
       categoria: m.categoria,
       fecha: m.fecha.slice(0, 10),
       notas: m.notas || '',
+      pagador: m.pagador || '',
+      cuenta: m.cuenta || '',
+      tiene_factura: m.tiene_factura || false,
+      nro_factura: m.nro_factura || '',
     });
     setModalOpen(true);
   };
@@ -139,12 +196,28 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
         categoria: form.categoria,
         fecha: form.fecha,
         notas: form.notas.trim() || undefined,
+        creado_por: corredorId,
+        pagador: form.pagador.trim() || undefined,
+        cuenta: form.cuenta.trim() || undefined,
+        tiene_factura: form.tiene_factura,
+        nro_factura: form.nro_factura.trim() || undefined,
       };
       if (form.id) {
         await actualizarMovimiento(form.id, input);
       } else {
         await crearMovimiento(input);
       }
+      try {
+        if (form.pagador && !opcionesPagador.includes(form.pagador)) {
+          await agregarOpcion(corredorId, 'pagador', form.pagador);
+        }
+        if (form.cuenta && !opcionesCuenta.includes(form.cuenta)) {
+          await agregarOpcion(corredorId, 'cuenta', form.cuenta);
+        }
+      } catch (err) {
+        console.error('No se pudo guardar la opción:', err);
+      }
+      await recargarOpciones();
       setModalOpen(false);
       await cargar();
     } catch (err) {
@@ -169,6 +242,27 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
   };
 
   const hayFiltros = Boolean(desde || hasta || tipo || categoria);
+
+  const agregarOpcionDesdeAdmin = async (tipo: 'pagador' | 'cuenta', valor: string) => {
+    if (!valor.trim()) return;
+    try {
+      await agregarOpcion(corredorId, tipo, valor);
+      if (tipo === 'pagador') setNuevoPagador('');
+      else setNuevaCuenta('');
+      await recargarOpciones();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const quitarOpcion = async (tipo: 'pagador' | 'cuenta', valor: string) => {
+    try {
+      await eliminarOpcion(corredorId, tipo, valor);
+      await recargarOpciones();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
 
   const kpi = [
     {
@@ -212,13 +306,22 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Finanzas</h2>
           <p className="text-[var(--text2)] mt-1">Control de ingresos, egresos y gastos del corredor.</p>
         </div>
-        <button
-          onClick={abrirNuevo}
-          className="bg-[var(--primary)] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[var(--primary-deep)] transition-colors flex items-center justify-center gap-2 shadow-sm"
-        >
-          <Plus className="w-5 h-5" />
-          Nuevo Movimiento
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setAdminOpcionesOpen(true)}
+            className="px-5 py-2.5 rounded-lg text-sm font-medium transition-colors bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--blue-header)] flex items-center justify-center gap-2"
+          >
+            <ListPlus className="w-5 h-5" />
+            Opciones
+          </button>
+          <button
+            onClick={abrirNuevo}
+            className="bg-[var(--primary)] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[var(--primary-deep)] transition-colors flex items-center justify-center gap-2 shadow-sm"
+          >
+            <Plus className="w-5 h-5" />
+            Nuevo Movimiento
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -383,6 +486,19 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
                                 <div>
                                   <p className="font-medium text-[var(--text)]">{m.concepto}</p>
                                   {m.notas && <p className="text-xs text-[var(--text2)] line-clamp-1">{m.notas}</p>}
+                                  {(m.pagador || m.cuenta) && (
+                                    <p className="text-xs text-[var(--text2)] mt-0.5">
+                                      {m.pagador && <>por {m.pagador}</>}
+                                      {m.pagador && m.cuenta && ' · '}
+                                      {m.cuenta && m.cuenta}
+                                    </p>
+                                  )}
+                                  {m.tiene_factura && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[var(--danger-soft)] text-[var(--danger-deep)] mt-1">
+                                      <FileText className="w-3 h-3" />
+                                      Con factura{m.nro_factura ? ` · ${m.nro_factura}` : ''}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
                             </td>
@@ -513,6 +629,106 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
                 </select>
               </div>
 
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Quién pagó</label>
+                  <select
+                    value={form.pagador && !opcionesPagador.includes(form.pagador) ? '__otro__' : form.pagador}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setForm({ ...form, pagador: v === '__otro__' ? form.pagador : v });
+                    }}
+                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                  >
+                    <option value="">— Sin asignar —</option>
+                    {opcionesPagador.map((p) => (
+                      <option key={p} value={p}>{p}</option>
+                    ))}
+                    <option value="__otro__">Otro (escribir)...</option>
+                  </select>
+                  {form.pagador && !opcionesPagador.includes(form.pagador) && (
+                    <>
+                      <input
+                        type="text"
+                        value={form.pagador}
+                        onChange={(e) => setForm({ ...form, pagador: e.target.value })}
+                        placeholder="Nombre de quién pagó"
+                        className="w-full h-12 px-4 mt-2 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                      />
+                      {form.pagador.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => agregarOpcionDesdeAdmin('pagador', form.pagador)}
+                          className="w-full mt-2 h-10 rounded-lg text-sm font-medium transition-colors bg-[var(--primary-soft)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white flex items-center justify-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4" />
+                          Guardar opción
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Cuenta / Método</label>
+                  <select
+                    value={form.cuenta && !opcionesCuenta.includes(form.cuenta) ? '__otro__' : form.cuenta}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setForm({ ...form, cuenta: v === '__otro__' ? form.cuenta : v });
+                    }}
+                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                  >
+                    <option value="">— Sin asignar —</option>
+                    {opcionesCuenta.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                    <option value="__otro__">Otro (escribir)...</option>
+                  </select>
+                  {form.cuenta && !opcionesCuenta.includes(form.cuenta) && (
+                    <>
+                      <input
+                        type="text"
+                        value={form.cuenta}
+                        onChange={(e) => setForm({ ...form, cuenta: e.target.value })}
+                        placeholder="Cuenta o método de pago"
+                        className="w-full h-12 px-4 mt-2 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                      />
+                      {form.cuenta.trim() && (
+                        <button
+                          type="button"
+                          onClick={() => agregarOpcionDesdeAdmin('cuenta', form.cuenta)}
+                          className="w-full mt-2 h-10 rounded-lg text-sm font-medium transition-colors bg-[var(--primary-soft)] text-[var(--primary)] hover:bg-[var(--primary)] hover:text-white flex items-center justify-center gap-1.5"
+                        >
+                          <Check className="w-4 h-4" />
+                          Guardar opción
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Factura emitida</label>
+                <select
+                  value={form.tiene_factura ? 'con' : 'sin'}
+                  onChange={(e) => setForm({ ...form, tiene_factura: e.target.value === 'con' })}
+                  className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                >
+                  <option value="sin">Sin factura</option>
+                  <option value="con">Con factura</option>
+                </select>
+                {form.tiene_factura && (
+                  <input
+                    type="text"
+                    value={form.nro_factura}
+                    onChange={(e) => setForm({ ...form, nro_factura: e.target.value })}
+                    placeholder="Número de factura (opcional)"
+                    className="w-full h-12 px-4 mt-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                  />
+                )}
+              </div>
+
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Notas</label>
                 <textarea
@@ -541,6 +757,111 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
                   {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
                   Guardar
                 </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {adminOpcionesOpen && (
+        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
+              <h3 className="text-xl font-bold text-[var(--text)]">Opciones de Finanzas</h3>
+              <button
+                onClick={() => setAdminOpcionesOpen(false)}
+                className="text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--hover)] p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6">
+              <div>
+                <span className="block text-xs font-semibold text-[var(--text2)] uppercase tracking-wider mb-2">Quién pagó</span>
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={nuevoPagador}
+                    onChange={(e) => setNuevoPagador(e.target.value)}
+                    placeholder="Nombre nuevo..."
+                    className="flex-1 h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') agregarOpcionDesdeAdmin('pagador', nuevoPagador);
+                    }}
+                  />
+                  <button
+                    onClick={() => agregarOpcionDesdeAdmin('pagador', nuevoPagador)}
+                    className="px-4 h-11 bg-[var(--primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Agregar
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {opcionesPagador.map((p) => {
+                    const enDb = opcionesDb.pagadores.includes(p);
+                    return (
+                      <span
+                        key={p}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-[var(--blue-header)] text-[var(--text)]"
+                      >
+                        {p}
+                        <button
+                          onClick={() => enDb && quitarOpcion('pagador', p)}
+                          disabled={!enDb}
+                          title={enDb ? 'Quitar' : 'Opción fija del sistema'}
+                          className={`${enDb ? 'text-[var(--text2)] hover:text-[var(--danger-deep)]' : 'text-[var(--text2)] opacity-30 cursor-not-allowed'} transition-colors`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-[var(--border)]">
+                <span className="block text-xs font-semibold text-[var(--text2)] uppercase tracking-wider mb-2">Cuenta / Método</span>
+                <div className="flex gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={nuevaCuenta}
+                    onChange={(e) => setNuevaCuenta(e.target.value)}
+                    placeholder="Cuenta o método nuevo..."
+                    className="flex-1 h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') agregarOpcionDesdeAdmin('cuenta', nuevaCuenta);
+                    }}
+                  />
+                  <button
+                    onClick={() => agregarOpcionDesdeAdmin('cuenta', nuevaCuenta)}
+                    className="px-4 h-11 bg-[var(--primary)] text-white text-sm font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Agregar
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {opcionesCuenta.map((c) => {
+                    const enDb = opcionesDb.cuentas.includes(c);
+                    return (
+                      <span
+                        key={c}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-[var(--blue-header)] text-[var(--text)]"
+                      >
+                        {c}
+                        <button
+                          onClick={() => enDb && quitarOpcion('cuenta', c)}
+                          disabled={!enDb}
+                          title={enDb ? 'Quitar' : 'Opción fija del sistema'}
+                          className={`${enDb ? 'text-[var(--text2)] hover:text-[var(--danger-deep)]' : 'text-[var(--text2)] opacity-30 cursor-not-allowed'} transition-colors`}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>

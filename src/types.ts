@@ -218,6 +218,11 @@ export interface Database {
           fecha: string;
           notas: string | null;
           creado_por: string | null;
+          pedido_id: string | null;
+          pagador: string | null;
+          cuenta: string | null;
+          tiene_factura: boolean;
+          nro_factura: string | null;
           created_at: string;
         };
         Insert: {
@@ -230,6 +235,11 @@ export interface Database {
           fecha?: string;
           notas?: string | null;
           creado_por?: string | null;
+          pedido_id?: string | null;
+          pagador?: string | null;
+          cuenta?: string | null;
+          tiene_factura?: boolean;
+          nro_factura?: string | null;
           created_at?: string;
         };
         Update: {
@@ -242,6 +252,113 @@ export interface Database {
           fecha?: string;
           notas?: string | null;
           creado_por?: string | null;
+          pedido_id?: string | null;
+          pagador?: string | null;
+          cuenta?: string | null;
+          tiene_factura?: boolean;
+          nro_factura?: string | null;
+          created_at?: string;
+        };
+        Relationships: any[];
+      };
+      movimientos_opciones: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          tipo: string;
+          valor: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          tipo: string;
+          valor: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          tipo?: string;
+          valor?: string;
+          created_at?: string;
+        };
+        Relationships: any[];
+      };
+      agenda: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          tipo: string;
+          titulo: string;
+          organismo: string | null;
+          monto: number;
+          fecha: string | null;
+          estado: string;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          tipo: string;
+          titulo: string;
+          organismo?: string | null;
+          monto?: number;
+          fecha?: string | null;
+          estado?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          tipo?: string;
+          titulo?: string;
+          organismo?: string | null;
+          monto?: number;
+          fecha?: string | null;
+          estado?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: any[];
+      };
+      podas: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          cantidad_arboles: number;
+          detalle: string;
+          tipo_arbol: string | null;
+          tipo_poda: string | null;
+          lugar: string | null;
+          fecha: string;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          cantidad_arboles: number;
+          detalle: string;
+          tipo_arbol?: string | null;
+          tipo_poda?: string | null;
+          lugar?: string | null;
+          fecha?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          cantidad_arboles?: number;
+          detalle?: string;
+          tipo_arbol?: string | null;
+          tipo_poda?: string | null;
+          lugar?: string | null;
+          fecha?: string;
+          notas?: string | null;
           created_at?: string;
         };
         Relationships: any[];

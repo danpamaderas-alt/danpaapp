@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS public.productos (
 -- clientes: exclusivos de cada corredor
 CREATE TABLE IF NOT EXISTS public.clientes (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  conductor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
   nombre text NOT NULL,
   telefono text,
   direccion text,
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS public.clientes (
 -- pedidos: exclusivos de cada corredor
 CREATE TABLE IF NOT EXISTS public.pedidos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  conductor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
   cliente_id uuid REFERENCES public.clientes (id) ON DELETE SET NULL,
   total double precision NOT NULL DEFAULT 0,
   notas text,
@@ -91,7 +91,7 @@ CREATE TABLE IF NOT EXISTS public.pedido_items (
 -- movimientos: finanzas de cada corredor
 CREATE TABLE IF NOT EXISTS public.movimientos (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  conductor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
   tipo text NOT NULL CHECK (tipo IN ('ingreso', 'egreso')),
   concepto text NOT NULL,
   monto double precision NOT NULL DEFAULT 0,
@@ -99,13 +99,18 @@ CREATE TABLE IF NOT EXISTS public.movimientos (
   fecha date NOT NULL DEFAULT CURRENT_DATE,
   notas text,
   creado_por uuid REFERENCES public.usuarios (id),
+  pedido_id uuid REFERENCES public.pedidos (id) ON DELETE SET NULL,
+  pagador text,
+  cuenta text,
+  tiene_factura boolean NOT NULL DEFAULT false,
+  nro_factura text,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 -- visitas: agenda de visitas de cada corredor
 CREATE TABLE IF NOT EXISTS public.visitas (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  conductor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
   cliente_id uuid REFERENCES public.clientes (id) ON DELETE SET NULL,
   fecha date NOT NULL DEFAULT CURRENT_DATE,
   estado text NOT NULL DEFAULT 'pendiente',
@@ -118,20 +123,60 @@ CREATE TABLE IF NOT EXISTS public.visitas (
 CREATE TABLE IF NOT EXISTS public.cliente_notas (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   cliente_id uuid NOT NULL REFERENCES public.clientes (id) ON DELETE CASCADE,
-  conductor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
   nota text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- agenda: contrataciones y pliegos agendados por corredor
+CREATE TABLE IF NOT EXISTS public.agenda (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  tipo text NOT NULL CHECK (tipo IN ('contratacion', 'pliego')),
+  titulo text NOT NULL,
+  organismo text,
+  monto double precision NOT NULL DEFAULT 0,
+  fecha date,
+  estado text NOT NULL DEFAULT 'pendiente'
+    CHECK (estado IN ('pendiente', 'presentado', 'adjudicado', 'perdido', 'vencido')),
+  notas text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- podas: registro de podas de arboles por corredor
+CREATE TABLE IF NOT EXISTS public.podas (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  cantidad_arboles integer NOT NULL DEFAULT 0,
+  detalle text NOT NULL,
+  tipo_arbol text,
+  tipo_poda text,
+  lugar text,
+  fecha date NOT NULL DEFAULT CURRENT_DATE,
+  notas text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- movimientos_opciones: listas persistentes para finanzas
+CREATE TABLE IF NOT EXISTS public.movimientos_opciones (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  corredor_id uuid NOT NULL REFERENCES public.usuarios (id) ON DELETE CASCADE,
+  tipo text NOT NULL CHECK (tipo IN ('pagador', 'cuenta')),
+  valor text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (corredor_id, tipo, valor)
 );
 
 -- ============================================================
 -- ÍNDICES
 -- ============================================================
-CREATE INDEX IF NOT EXISTS idx_clientes_corredor ON public.clientes (conductor_id);
-CREATE INDEX IF NOT EXISTS idx_pedidos_corredor ON public.pedidos (conductor_id);
+CREATE INDEX IF NOT EXISTS idx_clientes_corredor ON public.clientes (corredor_id);
+CREATE INDEX IF NOT EXISTS idx_pedidos_corredor ON public.pedidos (corredor_id);
 CREATE INDEX IF NOT EXISTS idx_pedidos_cliente ON public.pedidos (cliente_id);
 CREATE INDEX IF NOT EXISTS idx_pedido_items_pedido ON public.pedido_items (pedido_id);
-CREATE INDEX IF NOT EXISTS idx_movimientos_corredor ON public.movimientos (conductor_id);
-CREATE INDEX IF NOT EXISTS idx_visitas_corredor ON public.visitas (conductor_id);
+CREATE INDEX IF NOT EXISTS idx_movimientos_corredor ON public.movimientos (corredor_id);
+CREATE INDEX IF NOT EXISTS idx_movimientos_pedido ON public.movimientos (pedido_id);
+CREATE INDEX IF NOT EXISTS idx_visitas_corredor ON public.visitas (corredor_id);
 CREATE INDEX IF NOT EXISTS idx_cliente_notas_cliente ON public.cliente_notas (cliente_id);
 
 -- ============================================================
@@ -198,36 +243,36 @@ CREATE POLICY "productos_escribir" ON public.productos
 -- --- clientes: solo el corredor dueño ---
 DROP POLICY IF EXISTS "clientes_select" ON public.clientes;
 CREATE POLICY "clientes_select" ON public.clientes
-  FOR SELECT USING (conductor_id = auth.uid());
+  FOR SELECT USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "clientes_insert" ON public.clientes;
 CREATE POLICY "clientes_insert" ON public.clientes
-  FOR INSERT WITH CHECK (conductor_id = auth.uid());
+  FOR INSERT WITH CHECK (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "clientes_update" ON public.clientes;
 CREATE POLICY "clientes_update" ON public.clientes
-  FOR UPDATE USING (conductor_id = auth.uid());
+  FOR UPDATE USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "clientes_delete" ON public.clientes;
 CREATE POLICY "clientes_delete" ON public.clientes
-  FOR DELETE USING (conductor_id = auth.uid());
+  FOR DELETE USING (corredor_id = auth.uid());
 
 -- --- pedidos: solo el corredor dueño ---
 DROP POLICY IF EXISTS "pedidos_select" ON public.pedidos;
 CREATE POLICY "pedidos_select" ON public.pedidos
-  FOR SELECT USING (conductor_id = auth.uid());
+  FOR SELECT USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "pedidos_insert" ON public.pedidos;
 CREATE POLICY "pedidos_insert" ON public.pedidos
-  FOR INSERT WITH CHECK (conductor_id = auth.uid());
+  FOR INSERT WITH CHECK (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "pedidos_update" ON public.pedidos;
 CREATE POLICY "pedidos_update" ON public.pedidos
-  FOR UPDATE USING (conductor_id = auth.uid());
+  FOR UPDATE USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "pedidos_delete" ON public.pedidos;
 CREATE POLICY "pedidos_delete" ON public.pedidos
-  FOR DELETE USING (conductor_id = auth.uid());
+  FOR DELETE USING (corredor_id = auth.uid());
 
 -- --- pedido_items: via la propiedad del pedido ---
 DROP POLICY IF EXISTS "pedido_items_select" ON public.pedido_items;
@@ -236,7 +281,7 @@ CREATE POLICY "pedido_items_select" ON public.pedido_items
     EXISTS (
       SELECT 1 FROM public.pedidos
       WHERE pedidos.id = pedido_items.pedido_id
-        AND pedidos.conductor_id = auth.uid()
+        AND pedidos.corredor_id = auth.uid()
     )
   );
 
@@ -246,7 +291,7 @@ CREATE POLICY "pedido_items_insert" ON public.pedido_items
     EXISTS (
       SELECT 1 FROM public.pedidos
       WHERE pedidos.id = pedido_items.pedido_id
-        AND pedidos.conductor_id = auth.uid()
+        AND pedidos.corredor_id = auth.uid()
     )
   );
 
@@ -256,7 +301,7 @@ CREATE POLICY "pedido_items_update" ON public.pedido_items
     EXISTS (
       SELECT 1 FROM public.pedidos
       WHERE pedidos.id = pedido_items.pedido_id
-        AND pedidos.conductor_id = auth.uid()
+        AND pedidos.corredor_id = auth.uid()
     )
   );
 
@@ -266,57 +311,101 @@ CREATE POLICY "pedido_items_delete" ON public.pedido_items
     EXISTS (
       SELECT 1 FROM public.pedidos
       WHERE pedidos.id = pedido_items.pedido_id
-        AND pedidos.conductor_id = auth.uid()
+        AND pedidos.corredor_id = auth.uid()
     )
   );
 
 -- --- movimientos: solo el corredor dueño ---
 DROP POLICY IF EXISTS "movimientos_select" ON public.movimientos;
 CREATE POLICY "movimientos_select" ON public.movimientos
-  FOR SELECT USING (conductor_id = auth.uid());
+  FOR SELECT USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "movimientos_insert" ON public.movimientos;
 CREATE POLICY "movimientos_insert" ON public.movimientos
-  FOR INSERT WITH CHECK (conductor_id = auth.uid());
+  FOR INSERT WITH CHECK (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "movimientos_update" ON public.movimientos;
 CREATE POLICY "movimientos_update" ON public.movimientos
-  FOR UPDATE USING (conductor_id = auth.uid());
+  FOR UPDATE USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "movimientos_delete" ON public.movimientos;
 CREATE POLICY "movimientos_delete" ON public.movimientos
-  FOR DELETE USING (conductor_id = auth.uid());
+  FOR DELETE USING (corredor_id = auth.uid());
 
 -- --- visitas: solo el corredor dueño ---
 DROP POLICY IF EXISTS "visitas_select" ON public.visitas;
 CREATE POLICY "visitas_select" ON public.visitas
-  FOR SELECT USING (conductor_id = auth.uid());
+  FOR SELECT USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "visitas_insert" ON public.visitas;
 CREATE POLICY "visitas_insert" ON public.visitas
-  FOR INSERT WITH CHECK (conductor_id = auth.uid());
+  FOR INSERT WITH CHECK (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "visitas_update" ON public.visitas;
 CREATE POLICY "visitas_update" ON public.visitas
-  FOR UPDATE USING (conductor_id = auth.uid());
+  FOR UPDATE USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "visitas_delete" ON public.visitas;
 CREATE POLICY "visitas_delete" ON public.visitas
-  FOR DELETE USING (conductor_id = auth.uid());
+  FOR DELETE USING (corredor_id = auth.uid());
 
 -- --- cliente_notas: solo el corredor dueño ---
 DROP POLICY IF EXISTS "cliente_notas_select" ON public.cliente_notas;
 CREATE POLICY "cliente_notas_select" ON public.cliente_notas
-  FOR SELECT USING (conductor_id = auth.uid());
+  FOR SELECT USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "cliente_notas_insert" ON public.cliente_notas;
 CREATE POLICY "cliente_notas_insert" ON public.cliente_notas
-  FOR INSERT WITH CHECK (conductor_id = auth.uid());
+  FOR INSERT WITH CHECK (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "cliente_notas_update" ON public.cliente_notas;
 CREATE POLICY "cliente_notas_update" ON public.cliente_notas
-  FOR UPDATE USING (conductor_id = auth.uid());
+  FOR UPDATE USING (corredor_id = auth.uid());
 
 DROP POLICY IF EXISTS "cliente_notas_delete" ON public.cliente_notas;
 CREATE POLICY "cliente_notas_delete" ON public.cliente_notas
-  FOR DELETE USING (conductor_id = auth.uid());
+  FOR DELETE USING (corredor_id = auth.uid());
+
+-- ============================================================
+-- MOVIMIENTO AUTOMÁTICO AL PAGAR UN PEDIDO
+-- Cuando un pedido pasa a estado_pago = 'pagado' se registra un
+-- ingreso (categoria 'ventas') en movimientos, enlazado por
+-- pedido_id. Si se revierte a 'no_pagado', el movimiento se borra.
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.on_pedido_estado_pago()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.estado_pago = 'pagado' AND OLD.estado_pago IS DISTINCT FROM 'pagado' THEN
+    IF NEW.monto_pagado > 0 AND NOT EXISTS (
+      SELECT 1 FROM public.movimientos WHERE pedido_id = NEW.id
+    ) THEN
+      INSERT INTO public.movimientos (
+        corredor_id, tipo, concepto, monto, categoria, fecha, notas, creado_por, pedido_id
+      ) VALUES (
+        NEW.corredor_id,
+        'ingreso',
+        'Cobro pedido ' || left(NEW.id::text, 8),
+        NEW.monto_pagado,
+        'ventas',
+        COALESCE(NEW.fecha_pago::date, CURRENT_DATE),
+        'Cobro automático del pedido',
+        NEW.corredor_id,
+        NEW.id
+      );
+    END IF;
+  ELSIF OLD.estado_pago = 'pagado' AND NEW.estado_pago IS DISTINCT FROM 'pagado' THEN
+    DELETE FROM public.movimientos WHERE pedido_id = NEW.id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_pedido_estado_pago ON public.pedidos;
+CREATE TRIGGER trg_pedido_estado_pago
+  AFTER UPDATE OF estado_pago ON public.pedidos
+  FOR EACH ROW EXECUTE FUNCTION public.on_pedido_estado_pago();
