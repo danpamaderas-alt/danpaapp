@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   PackageOpen,
   PlusCircle,
@@ -19,10 +19,23 @@ import {
   LogOut,
   Menu,
   X,
+  Bell,
+  CheckCheck,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import type { Session } from '@supabase/supabase-js';
+import {
+  fetchNotificaciones,
+  marcarLeido,
+  marcarTodasLeido,
+  iconoNotificacion,
+  colorNotificacion,
+  type Notificacion,
+  type TipoNotificacion,
+  type NivelNotificacion,
+} from './lib/notificaciones';
+import { formatDate } from './lib/format';
 import Dashboard from './components/Dashboard';
 import ProductosView from './components/ProductosView';
 import NuevoPedido from './components/NuevoPedido';
@@ -50,6 +63,8 @@ export default function App() {
   const [perfilError, setPerfilError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
+  const [notifOpen, setNotifOpen] = useState(false);
   const [dark, setDark] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem('maderas.dark');
@@ -122,6 +137,45 @@ export default function App() {
   const cerrarSesion = async () => {
     await supabase.auth.signOut();
     setCorredor(null);
+    setNotificaciones([]);
+    setNotifOpen(false);
+  };
+
+  const cargarNotificaciones = useCallback(async (id: string) => {
+    try {
+      const lista = await fetchNotificaciones(id);
+      setNotificaciones(lista);
+    } catch (err) {
+      console.error('Error cargando notificaciones:', err);
+    }
+  }, []);
+
+  const noLeidas = notificaciones.filter((n) => !n.leido).length;
+
+  const abrirNotif = () => {
+    setNotifOpen((o) => !o);
+    if (corredorId) cargarNotificaciones(corredorId);
+  };
+
+  const clickNotif = async (n: Notificacion) => {
+    setNotifOpen(false);
+    if (!n.leido) {
+      setNotificaciones((prev) => prev.map((x) => (x.id === n.id ? { ...x, leido: true } : x)));
+      marcarLeido(n.id, corredorId).catch(console.error);
+    }
+    if (n.enlace === 'agenda') {
+      setCurrentView('agenda');
+      setSidebarOpen(false);
+    }
+  };
+
+  const marcarTodas = async () => {
+    setNotificaciones((prev) => prev.map((x) => ({ ...x, leido: true })));
+    try {
+      await marcarTodasLeido(corredorId);
+    } catch (err) {
+      console.error('Error marcando todas como leídas:', err);
+    }
   };
 
   if (!isSupabaseConfigured) {
@@ -180,6 +234,10 @@ export default function App() {
   const corredorId = c.id;
   const esAdmin = c.perfil === 'admin';
 
+  useEffect(() => {
+    if (corredorId) cargarNotificaciones(corredorId);
+  }, [corredorId, cargarNotificaciones]);
+
   return (
     <div className="flex min-h-screen bg-[var(--bg)]">
       {sidebarOpen && (
@@ -221,7 +279,7 @@ export default function App() {
                 { id: 'pedidos', label: 'Mis Pedidos', Icon: ListOrdered },
                 { id: 'clientes', label: 'Mis Clientes', Icon: Users },
                 { id: 'visitas', label: 'Visitas', Icon: CalendarCheck2 },
-                { id: 'agenda', label: 'Contrataciones y Pliegos', Icon: Briefcase },
+                { id: 'agenda', label: 'Agenda', Icon: Briefcase },
                 { id: 'podas', label: 'Podas de Árboles', Icon: Scissors },
                 { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
                 { id: 'informes', label: 'Informes', Icon: BarChart3 },
@@ -275,18 +333,80 @@ export default function App() {
       </aside>
 
       <div className="lg:ml-[260px] flex-1 flex flex-col min-w-0">
-        <header className="lg:hidden sticky top-0 z-30 bg-[#162839] flex items-center gap-3 px-4 py-3 shadow-lg">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="text-[var(--muted)] hover:text-white p-1"
-            title="Abrir menú"
-          >
-            <Menu className="w-6 h-6" />
-          </button>
-          <h1 className="text-lg font-bold text-white tracking-tight">DANPA MADERAS</h1>
+        <header className="sticky top-0 z-30 bg-[#162839] flex items-center justify-between gap-3 px-4 py-3 shadow-lg">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-[var(--muted)] hover:text-white p-1"
+              title="Abrir menú"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
+            <h1 className="text-lg font-bold text-white tracking-tight">DANPA MADERAS</h1>
+          </div>
+
+          <div className="relative">
+            <button
+              onClick={abrirNotif}
+              className="relative p-2 rounded-lg text-[var(--muted)] hover:text-white hover:bg-[#2c3e50] transition-colors"
+              title="Notificaciones"
+            >
+              <Bell className="w-5 h-5" />
+              {noLeidas > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[var(--danger)] text-white text-[10px] font-bold flex items-center justify-center">
+                  {noLeidas > 99 ? '99+' : noLeidas}
+                </span>
+              )}
+            </button>
+
+            {notifOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setNotifOpen(false)} />
+                <div className="absolute right-0 top-full mt-2 z-50 w-80 sm:w-96 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-2xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
+                    <p className="font-semibold text-[var(--text)]">Notificaciones</p>
+                    {noLeidas > 0 && (
+                      <button
+                        onClick={marcarTodas}
+                        className="text-xs font-medium text-[var(--primary)] hover:underline flex items-center gap-1"
+                      >
+                        <CheckCheck className="w-3.5 h-3.5" />
+                        Marcar todas
+                      </button>
+                    )}
+                  </div>
+                  <div className="max-h-[380px] overflow-y-auto divide-y divide-[var(--border)]">
+                    {notificaciones.length === 0 ? (
+                      <p className="px-4 py-8 text-center text-sm text-[var(--text2)]">No tenés notificaciones.</p>
+                    ) : (
+                      notificaciones.map((n) => (
+                        <button
+                          key={n.id}
+                          onClick={() => clickNotif(n)}
+                          className="w-full text-left px-4 py-3 hover:bg-[var(--field)] transition-colors"
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className={`w-8 h-8 rounded-lg border flex items-center justify-center text-sm flex-shrink-0 ${colorNotificacion(n.nivel as NivelNotificacion)}`}>
+                              {iconoNotificacion(n.tipo as TipoNotificacion)}
+                            </span>
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-sm ${n.leido ? 'text-[var(--text2)]' : 'text-[var(--text)] font-semibold'}`}>{n.titulo}</p>
+                              <p className="text-xs text-[var(--text2)] mt-0.5 line-clamp-2">{n.mensaje}</p>
+                              <p className="text-[10px] text-[var(--muted)] mt-1">{formatDate(n.creado_en)}</p>
+                            </div>
+                            {!n.leido && <span className="w-2 h-2 rounded-full bg-[var(--primary)] flex-shrink-0 mt-1.5" />}
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </header>
 
-        {currentView === 'dashboard' && <Dashboard corredorId={corredorId} />}
+        {currentView === 'dashboard' && <Dashboard corredorId={corredorId} onNavigate={() => setCurrentView('agenda')} />}
         {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
         {currentView === 'productos' && <ProductosView />}
         {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}

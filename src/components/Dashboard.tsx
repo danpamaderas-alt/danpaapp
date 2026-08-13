@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { dinero, formatDate, parseDateOnly } from '../lib/format';
 import type { Database } from '../types';
-import { type AgendaItem } from '../lib/agenda';
+import { etiquetaTipo, type AgendaItem } from '../lib/agenda';
+import { generarRecordatoriosAgenda } from '../lib/notificaciones';
 import {
   PackageOpen,
   AlertTriangle,
@@ -15,7 +16,8 @@ import {
   Calendar,
   Factory,
   CheckCircle2,
-  Briefcase,
+  CalendarDays,
+  ArrowRight,
 } from 'lucide-react';
 
 type Pedido = Database['public']['Tables']['pedidos']['Row'];
@@ -27,9 +29,10 @@ type PedidoConDetalles = Pedido & { clientes: Cliente | null; pedido_items: Item
 
 interface DashboardProps {
   corredorId: string;
+  onNavigate?: (view: 'agenda') => void;
 }
 
-export default function Dashboard({ corredorId }: DashboardProps) {
+export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
   const [pedidos, setPedidos] = useState<PedidoConDetalles[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
@@ -78,6 +81,14 @@ export default function Dashboard({ corredorId }: DashboardProps) {
     fetchData();
   }, [corredorId]);
 
+  useEffect(() => {
+    if (!corredorId) return;
+
+    generarRecordatoriosAgenda(corredorId).catch((err) => {
+      console.error('Error generando recordatorios de agenda:', err);
+    });
+  }, [corredorId]);
+
   const facturado = pedidos.reduce((acc, p) => acc + (p.total || 0), 0);
   const porCobrar = pedidos
     .filter((p) => p.estado_pago !== 'pagado')
@@ -86,16 +97,34 @@ export default function Dashboard({ corredorId }: DashboardProps) {
   const enProceso = pedidos.filter((p) => p.estado !== 'Entregado').length;
   const stockBajo = productos.filter((p) => p.activo && p.stock <= (p.stock_minimo || 0));
 
-  const agendaProxima = useMemo(() => {
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-    const limite = new Date(hoy);
-    limite.setDate(hoy.getDate() + 15);
-    return agenda
-      .filter((a) => a.estado === 'pendiente')
-      .filter((a) => !a.fecha || (parseDateOnly(a.fecha) >= hoy && parseDateOnly(a.fecha) <= limite))
-      .slice(0, 5);
+  const inicioDia = (d: Date) => {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+  };
+
+  const diffDias = (f: Date, h: Date) =>
+    Math.round((inicioDia(f).getTime() - inicioDia(h).getTime()) / 86400000);
+
+  const eventosAgenda = useMemo(() => {
+    const hoy = inicioDia(new Date());
+    const conFecha = agenda.filter((a) => a.fecha && (a.estado === 'pendiente' || a.estado === 'presentado'));
+    const vencidos = conFecha
+      .filter((a) => parseDateOnly(a.fecha!) < hoy)
+      .sort((a, b) => parseDateOnly(a.fecha!).getTime() - parseDateOnly(b.fecha!).getTime());
+    const proximos = conFecha
+      .filter((a) => parseDateOnly(a.fecha!) >= hoy)
+      .sort((a, b) => parseDateOnly(a.fecha!).getTime() - parseDateOnly(b.fecha!).getTime())
+      .slice(0, 6);
+    return { vencidos, proximos };
   }, [agenda]);
+
+  const etiquetaCuando = (dias: number) => {
+    if (dias === 0) return { texto: 'Hoy', clase: 'bg-[var(--primary-soft)] text-[var(--primary-deep)]' };
+    if (dias === 1) return { texto: 'Mañana', clase: 'bg-[var(--amber-soft2)] text-[var(--amber-text2)]' };
+    if (dias <= 7) return { texto: `En ${dias} días`, clase: 'bg-[var(--blue-soft)] text-[var(--text)]' };
+    return { texto: `En ${dias} días`, clase: 'bg-[var(--gray-soft)] text-[var(--text2)]' };
+  };
 
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[var(--bg)]">
@@ -163,16 +192,66 @@ export default function Dashboard({ corredorId }: DashboardProps) {
               </div>
             )}
 
-            {agendaProxima.length > 0 && (
-              <div className="bg-[var(--blue-soft)] border border-[var(--primary)]/30 rounded-xl p-4 flex items-start gap-3 mb-8">
-                <Briefcase className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-[var(--text)]">
-                  <span className="font-semibold">Próximos pliegos y contrataciones: </span>
-                  {agendaProxima
-                    .map((a) => `${a.titulo}${a.fecha ? ` (${formatDate(a.fecha)})` : ' (sin fecha)'} — ${a.tipo === 'pliego' ? 'Pliego' : 'Contratación'}`)
-                    .join(' · ')}
+            {(eventosAgenda.vencidos.length > 0 || eventosAgenda.proximos.length > 0) && (
+              <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden mb-8">
+                <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center">
+                  <h3 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
+                    <CalendarDays className="w-5 h-5 text-[var(--primary)]" />
+                    Próximos eventos
+                  </h3>
+                  {onNavigate && (
+                    <button
+                      onClick={() => onNavigate('agenda')}
+                      className="text-sm font-medium text-[var(--primary)] hover:underline flex items-center gap-1"
+                    >
+                      Ver agenda
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
-              </div>
+                <div className="divide-y divide-[var(--border)]">
+                  {eventosAgenda.vencidos.length > 0 && (
+                    <div className="px-6 py-3 bg-[var(--danger-soft)]/60 flex items-center gap-2 text-sm">
+                      <AlertTriangle className="w-4 h-4 text-[var(--danger-deep)] flex-shrink-0" />
+                      <span className="text-[var(--danger-deep)]">
+                        <span className="font-semibold">Vencidos sin resolver: </span>
+                        {eventosAgenda.vencidos.slice(0, 3).map((v) => v.titulo).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                  {eventosAgenda.proximos.map((a) => {
+                    const dias = diffDias(parseDateOnly(a.fecha!), inicioDia(new Date()));
+                    const etiqueta = etiquetaCuando(dias);
+                    return (
+                      <div key={a.id} className="px-6 py-4 flex items-center justify-between gap-4 hover:bg-[var(--field)] transition-colors">
+                        <div className="flex items-center gap-4 min-w-0">
+                          <span className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            dias === 0 ? 'bg-[var(--primary-soft)]' : dias === 1 ? 'bg-[var(--amber-soft2)]' : 'bg-[var(--blue-soft)]'
+                          }`}>
+                            <CalendarDays className={`w-5 h-5 ${dias === 0 ? 'text-[var(--primary-deep)]' : dias === 1 ? 'text-[var(--amber-text2)]' : 'text-[var(--text)]'}`} />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-[var(--text)] truncate">{a.titulo}</p>
+                            <p className="text-xs text-[var(--text2)]">
+                              {etiquetaTipo(a.tipo)}
+                              {a.organismo ? ` · ${a.organismo}` : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-semibold ${etiqueta.clase}`}>
+                            {etiqueta.texto}
+                          </span>
+                          <p className="text-xs text-[var(--text2)] mt-1">
+                            {formatDate(a.fecha!)}
+                            {a.hora ? ` · ${a.hora.slice(0, 5)}` : ''}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
             <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">

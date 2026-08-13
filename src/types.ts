@@ -423,6 +423,7 @@ export interface Database {
           mensaje: string;
           enlace: string | null;
           dato_referencia: string | null;
+          agenda_id: string | null;
           leido: boolean;
           creado_en: string;
         };
@@ -435,6 +436,7 @@ export interface Database {
           mensaje: string;
           enlace?: string | null;
           dato_referencia?: string | null;
+          agenda_id?: string | null;
           leido: boolean;
           creado_en?: string;
         };
@@ -447,6 +449,7 @@ export interface Database {
           mensaje?: string;
           enlace?: string | null;
           dato_referencia?: string | null;
+          agenda_id?: string | null;
           leido?: boolean;
           creado_en?: string;
         };
@@ -456,6 +459,13 @@ export interface Database {
             columns: ['corredor_id'];
             isOneToOne: false;
             referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'notificaciones_agenda_id_fkey';
+            columns: ['agenda_id'];
+            isOneToOne: false;
+            referencedRelation: 'agenda';
             referencedColumns: ['id'];
           }
         ];
@@ -556,6 +566,8 @@ export interface Database {
           organismo: string | null;
           monto: number;
           fecha: string | null;
+          hora: string | null;
+          dias_aviso: number | null;
           estado: string;
           notas: string | null;
           created_at: string;
@@ -568,6 +580,8 @@ export interface Database {
           organismo?: string | null;
           monto?: number;
           fecha?: string | null;
+          hora?: string | null;
+          dias_aviso?: number | null;
           estado?: string;
           notas?: string | null;
           created_at?: string;
@@ -580,6 +594,8 @@ export interface Database {
           organismo?: string | null;
           monto?: number;
           fecha?: string | null;
+          hora?: string | null;
+          dias_aviso?: number | null;
           estado?: string;
           notas?: string | null;
           created_at?: string;

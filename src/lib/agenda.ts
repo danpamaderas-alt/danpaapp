@@ -11,15 +11,25 @@ export type AgendaInput = {
   organismo?: string;
   monto?: number;
   fecha?: string;
+  hora?: string;
+  dias_aviso?: number;
   estado?: string;
   notas?: string;
 };
 
-export const TIPOS_AGENDA = ['contratacion', 'pliego'];
+export const TIPOS_AGENDA = ['contratacion', 'pliego', 'evento'];
 
 export const ESTADOS_AGENDA = ['pendiente', 'presentado', 'adjudicado', 'perdido', 'vencido'];
 
 export const etiquetaEstado = (e: string) => e.charAt(0).toUpperCase() + e.slice(1);
+
+export const etiquetaTipo = (t: string) => {
+  switch (t) {
+    case 'pliego': return 'Pliego';
+    case 'evento': return 'Evento';
+    default: return 'Contratación';
+  }
+};
 
 export async function fetchAgenda(
   corredorId: string,
@@ -53,6 +63,8 @@ export async function crearAgenda(input: AgendaInput): Promise<AgendaItem> {
       organismo: input.organismo || null,
       monto: input.monto || 0,
       fecha: input.fecha || null,
+      hora: input.hora || null,
+      dias_aviso: input.dias_aviso && input.dias_aviso > 0 ? input.dias_aviso : null,
       estado: input.estado || 'pendiente',
       notas: input.notas || null,
     })

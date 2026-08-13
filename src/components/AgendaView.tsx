@@ -23,6 +23,8 @@ import {
   Trash2,
   X,
   Building2,
+  CalendarDays,
+  Bell,
 } from 'lucide-react';
 
 interface AgendaViewProps {
@@ -36,6 +38,8 @@ interface FormState {
   organismo: string;
   monto: string;
   fecha: string;
+  hora: string;
+  dias_aviso: string;
   estado: string;
   notas: string;
 }
@@ -46,6 +50,8 @@ const emptyForm = (tipo: string): FormState => ({
   organismo: '',
   monto: '',
   fecha: '',
+  hora: '',
+  dias_aviso: '',
   estado: 'pendiente',
   notas: '',
 });
@@ -106,13 +112,17 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
   }, [items]);
 
   const esPliego = tipoTab === 'pliego';
+  const esEvento = tipoTab === 'evento';
+  const tituloSeccion = esPliego ? 'Pliegos' : esEvento ? 'Eventos' : 'Contrataciones';
+  const textoNuevo = esPliego ? 'Nuevo Pliego' : esEvento ? 'Nuevo Evento' : 'Nueva Contratación';
+  const IconoSeccion = esPliego ? FileText : esEvento ? CalendarDays : Briefcase;
 
   const kpi = [
     {
-      label: esPliego ? 'Pliegos' : 'Contrataciones',
+      label: tituloSeccion,
       valor: String(contadores.total),
       clase: 'text-[var(--text)]',
-      Icon: esPliego ? FileText : Briefcase,
+      Icon: IconoSeccion,
       fondo: 'bg-[var(--gray-soft)]',
       iconColor: 'text-[var(--text)]',
     },
@@ -155,6 +165,8 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
       organismo: i.organismo || '',
       monto: i.monto ? String(i.monto) : '',
       fecha: i.fecha ? i.fecha.slice(0, 10) : '',
+      hora: i.hora ? i.hora.slice(0, 5) : '',
+      dias_aviso: i.dias_aviso ? String(i.dias_aviso) : '',
       estado: i.estado,
       notas: i.notas || '',
     });
@@ -176,6 +188,8 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
         organismo: form.organismo.trim() || undefined,
         monto: form.monto ? Number(form.monto) : 0,
         fecha: form.fecha || undefined,
+        hora: form.hora || undefined,
+        dias_aviso: form.dias_aviso ? Number(form.dias_aviso) : undefined,
         estado: form.estado,
         notas: form.notas.trim() || undefined,
       };
@@ -211,8 +225,8 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
     <div className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
       <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Contrataciones y Pliegos</h2>
-          <p className="text-[var(--text2)] mt-1">Agendá y seguí el estado de tus contrataciones y pliegos.</p>
+          <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Agenda</h2>
+          <p className="text-[var(--text2)] mt-1">Eventos, contrataciones y pliegos con recordatorios para no perder ninguna fecha.</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex bg-[var(--field)] border border-[var(--border)] rounded-lg p-1">
@@ -238,13 +252,24 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
               <FileText className="w-4 h-4" />
               Pliegos
             </button>
+            <button
+              onClick={() => setTipoTab('evento')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                tipoTab === 'evento'
+                  ? 'bg-[var(--primary)] text-white'
+                  : 'text-[var(--text2)] hover:text-[var(--text)]'
+              }`}
+            >
+              <CalendarDays className="w-4 h-4" />
+              Eventos
+            </button>
           </div>
           <button
             onClick={abrirNuevo}
             className="bg-[var(--primary)] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[var(--primary-deep)] transition-colors flex items-center justify-center gap-2 shadow-sm"
           >
             <Plus className="w-5 h-5" />
-            {esPliego ? 'Nuevo Pliego' : 'Nueva Contratación'}
+            {textoNuevo}
           </button>
         </div>
       </div>
@@ -312,7 +337,7 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
           <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center">
               <h3 className="text-lg font-semibold text-[var(--text)]">
-                {esPliego ? 'Pliegos' : 'Contrataciones'}
+                {tituloSeccion}
                 {contadores.montoTotal > 0 && (
                   <span className="ml-3 text-base font-semibold text-[var(--primary)]">{dinero(contadores.montoTotal)}</span>
                 )}
@@ -335,8 +360,14 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
                   {items.length === 0 ? (
                     <tr>
                       <td colSpan={6} className="px-6 py-12 text-center text-[var(--text2)]">
-                        {esPliego ? <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" /> : <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-50" />}
-                        <p className="font-medium">No hay {esPliego ? 'pliegos' : 'contrataciones'} registrados</p>
+                        {esPliego ? (
+                          <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        ) : esEvento ? (
+                          <CalendarDays className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        ) : (
+                          <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                        )}
+                        <p className="font-medium">No hay {tituloSeccion.toLowerCase()} registrados</p>
                         <p className="text-sm mt-1">Agregá uno para no perder ninguna fecha importante.</p>
                       </td>
                     </tr>
@@ -344,10 +375,28 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
                     items.map((i) => (
                       <tr key={i.id} className="hover:bg-[var(--field)] transition-colors">
                         <td className="px-6 py-3.5 text-[var(--text2)] text-sm whitespace-nowrap">
-                          {i.fecha ? formatDate(i.fecha) : <span className="text-[var(--muted)]">Sin fecha</span>}
+                          {i.fecha ? (
+                            <>
+                              {formatDate(i.fecha)}
+                              {i.hora && (
+                                <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--primary-deep)]">
+                                  <Clock className="w-3 h-3" />
+                                  {i.hora.slice(0, 5)}
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[var(--muted)]">Sin fecha</span>
+                          )}
                         </td>
                         <td className="px-6 py-3.5">
                           <p className="font-medium text-[var(--text)]">{i.titulo}</p>
+                          {i.dias_aviso && i.dias_aviso > 0 && (
+                            <span className="inline-flex items-center gap-1 text-xs text-[var(--text2)]">
+                              <Bell className="w-3 h-3" />
+                              Avisa {i.dias_aviso} día{i.dias_aviso > 1 ? 's' : ''} antes
+                            </span>
+                          )}
                           {i.notas && <p className="text-xs text-[var(--text2)] line-clamp-1">{i.notas}</p>}
                         </td>
                         <td className="px-6 py-3.5">
@@ -397,7 +446,13 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <h3 className="text-xl font-bold text-[var(--text)]">
-                {form.id ? 'Editar' : form.tipo === 'pliego' ? 'Nuevo Pliego' : 'Nueva Contratación'}
+                {form.id
+                  ? 'Editar'
+                  : form.tipo === 'pliego'
+                    ? 'Nuevo Pliego'
+                    : form.tipo === 'evento'
+                      ? 'Nuevo Evento'
+                      : 'Nueva Contratación'}
               </h3>
               <button
                 onClick={() => setModalOpen(false)}
@@ -432,6 +487,18 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
                 >
                   <FileText className="w-4 h-4" />
                   Pliego
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, tipo: 'evento' })}
+                  className={`h-11 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                    form.tipo === 'evento'
+                      ? 'bg-[var(--primary-soft)] border-[var(--primary)] text-[var(--primary-deep)]'
+                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text2)] hover:bg-[var(--field)]'
+                  }`}
+                >
+                  <CalendarDays className="w-4 h-4" />
+                  Evento
                 </button>
               </div>
 
@@ -482,6 +549,18 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
                   />
                 </div>
                 <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Hora</label>
+                  <input
+                    type="time"
+                    value={form.hora}
+                    onChange={(e) => setForm({ ...form, hora: e.target.value })}
+                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-5">
+                <div className="space-y-1">
                   <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Estado</label>
                   <select
                     value={form.estado}
@@ -494,6 +573,19 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Aviso previo (días)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="60"
+                    value={form.dias_aviso}
+                    onChange={(e) => setForm({ ...form, dias_aviso: e.target.value })}
+                    placeholder="0 = sin aviso"
+                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                  />
+                  <p className="text-xs text-[var(--text2)]">Te avisamos con la campanita antes de la fecha.</p>
                 </div>
               </div>
 
