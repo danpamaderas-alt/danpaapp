@@ -1,6 +1,6 @@
 import type { Usuario } from './corredor';
 
-export const GOD_MODE = true;
+export const GOD_MODE = false;
 
 export const GOD_CORREDOR_ID = '16fcafca-0f5c-4cf5-abf8-7f7b81d7b45c';
 
