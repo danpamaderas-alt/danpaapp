@@ -150,6 +150,10 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (corredor?.id) cargarNotificaciones(corredor.id);
+  }, [corredor?.id, cargarNotificaciones]);
+
   const noLeidas = notificaciones.filter((n) => !n.leido).length;
 
   const abrirNotif = () => {
@@ -233,10 +237,6 @@ export default function App() {
   const c = GOD_MODE ? godUsuario : corredor!;
   const corredorId = c.id;
   const esAdmin = c.perfil === 'admin';
-
-  useEffect(() => {
-    if (corredorId) cargarNotificaciones(corredorId);
-  }, [corredorId, cargarNotificaciones]);
 
   return (
     <div className="flex min-h-screen bg-[var(--bg)]">
