@@ -1,4 +1,5 @@
 name = "danpaapp"
+account_id = "5ccf9f2ef037efaaeda80286ded8494d"
 main = "worker.js"
 compatibility_date = "2025-10-01"
 
