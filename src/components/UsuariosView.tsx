@@ -150,7 +150,7 @@ export default function UsuariosView({ corredorId }: { corredorId: string }) {
   };
 
   return (
-    <div className="flex-1 p-8 max-w-[1440px] mx-auto w-full">
+    <div className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
       <div className="mb-8 flex justify-between items-start">
         <div>
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Usuarios</h2>

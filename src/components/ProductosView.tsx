@@ -120,69 +120,88 @@ export default function ProductosView() {
     }
     setGuardando(true);
     setError(null);
-    const { error: e } = await supabase
-      .from('productos')
-      .update({
-        nombre: form.nombre.trim(),
-        descripcion: form.descripcion.trim() || null,
-        categoria: form.categoria.trim() || 'general',
-        precio,
-        stock_minimo: Math.max(0, Number(form.stock_minimo) || 0),
-        activo: form.activo,
-        costo: Math.max(0, Number(form.costo) || 0),
-        costo_adquisicion: Math.max(0, Number(form.costo_adquisicion) || 0),
-        costo_transporte: Math.max(0, Number(form.costo_transporte) || 0),
-        costo_empaque: Math.max(0, Number(form.costo_empaque) || 0),
-        costo_almacenaje: Math.max(0, Number(form.costo_almacenaje) || 0),
-        costo_almacenamiento: Math.max(0, Number(form.costo_almacenamiento) || 0),
-        costo_comision: Math.max(0, Number(form.costo_comision) || 0),
-        costo_otros: Math.max(0, Number(form.costo_otros) || 0),
-      })
-      .eq('id', selected.id);
-    setGuardando(false);
-    if (e) {
-      setError('Error al guardar el producto: ' + e.message);
-      return;
+    try {
+      const { error: e } = await supabase
+        .from('productos')
+        .update({
+          nombre: form.nombre.trim(),
+          descripcion: form.descripcion.trim() || null,
+          categoria: form.categoria.trim() || 'general',
+          precio,
+          stock_minimo: Math.max(0, Number(form.stock_minimo) || 0),
+          activo: form.activo,
+          costo: Math.max(0, Number(form.costo) || 0),
+          costo_adquisicion: Math.max(0, Number(form.costo_adquisicion) || 0),
+          costo_transporte: Math.max(0, Number(form.costo_transporte) || 0),
+          costo_empaque: Math.max(0, Number(form.costo_empaque) || 0),
+          costo_almacenaje: Math.max(0, Number(form.costo_almacenaje) || 0),
+          costo_almacenamiento: Math.max(0, Number(form.costo_almacenamiento) || 0),
+          costo_comision: Math.max(0, Number(form.costo_comision) || 0),
+          costo_otros: Math.max(0, Number(form.costo_otros) || 0),
+        })
+        .eq('id', selected.id);
+      if (e) {
+        setError('Error al guardar el producto: ' + e.message);
+        return;
+      }
+      setEditando(false);
+      await cargarProductos();
+    } catch (err) {
+      console.error(err);
+      setError('Error al guardar el producto.');
+    } finally {
+      setGuardando(false);
     }
-    setEditando(false);
-    await cargarProductos();
   };
 
   const aplicarAjuste = async (delta: number) => {
     if (!selected) return;
     const nuevo = Math.max(0, (selected.stock || 0) + delta);
     setGuardando(true);
-    const { error: e } = await supabase
-      .from('productos')
-      .update({ stock: nuevo })
-      .eq('id', selected.id);
-    setGuardando(false);
-    if (e) {
-      alert('Error al ajustar el stock: ' + e.message);
-      return;
+    try {
+      const { error: e } = await supabase
+        .from('productos')
+        .update({ stock: nuevo })
+        .eq('id', selected.id);
+      if (e) {
+        alert('Error al ajustar el stock: ' + e.message);
+        return;
+      }
+      setProductos((prev) => prev.map((p) => (p.id === selected.id ? { ...p, stock: nuevo } : p)));
+      setSelected((prev) => (prev ? { ...prev, stock: nuevo } : prev));
+    } catch (err) {
+      console.error(err);
+      alert('Error al ajustar el stock.');
+    } finally {
+      setGuardando(false);
     }
-    setProductos((prev) => prev.map((p) => (p.id === selected.id ? { ...p, stock: nuevo } : p)));
-    setSelected((prev) => (prev ? { ...prev, stock: nuevo } : prev));
   };
 
   const setStockExacto = async () => {
     if (!selected) return;
+    const nuevo = Math.max(0, ajuste);
     setGuardando(true);
-    const { error: e } = await supabase
-      .from('productos')
-      .update({ stock: Math.max(0, ajuste) })
-      .eq('id', selected.id);
-    setGuardando(false);
-    if (e) {
-      alert('Error al ajustar el stock: ' + e.message);
-      return;
+    try {
+      const { error: e } = await supabase
+        .from('productos')
+        .update({ stock: nuevo })
+        .eq('id', selected.id);
+      if (e) {
+        alert('Error al ajustar el stock: ' + e.message);
+        return;
+      }
+      setProductos((prev) => prev.map((p) => (p.id === selected.id ? { ...p, stock: nuevo } : p)));
+      setSelected((prev) => (prev ? { ...prev, stock: nuevo } : prev));
+    } catch (err) {
+      console.error(err);
+      alert('Error al ajustar el stock.');
+    } finally {
+      setGuardando(false);
     }
-    setProductos((prev) => prev.map((p) => (p.id === selected.id ? { ...p, stock: Math.max(0, ajuste) } : p)));
-    setSelected((prev) => (prev ? { ...prev, stock: Math.max(0, ajuste) } : prev));
   };
 
   return (
-    <div className="flex-1 p-8 max-w-[1440px] mx-auto w-full">
+    <div className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
       <div className="mb-8 flex justify-between items-start">
         <div>
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Productos & Stock</h2>

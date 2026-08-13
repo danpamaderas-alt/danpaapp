@@ -72,3 +72,11 @@ html,
 body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+@media print {
+  aside { display: none !important; }
+  header { display: none !important; }
+  [class*="ml-[260px]"] { margin-left: 0 !important; }
+  .no-print { display: none !important; }
+  body { background: #fff !important; }
+}

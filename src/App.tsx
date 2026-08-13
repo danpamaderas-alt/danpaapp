@@ -10,11 +10,15 @@ import {
   UserCog,
   Briefcase,
   Scissors,
+  BarChart3,
+  Database,
   Loader2,
   AlertCircle,
   Sun,
   Moon,
   LogOut,
+  Menu,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -28,13 +32,15 @@ import FinanzasView from './components/FinanzasView';
 import VisitasView from './components/VisitasView';
 import AgendaView from './components/AgendaView';
 import PodasView from './components/PodasView';
+import InformesView from './components/InformesView';
+import BackupView from './components/BackupView';
 import UsuariosView from './components/UsuariosView';
 import Login from './components/Login';
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
 import { GOD_MODE, godUsuario } from './lib/god';
 
-type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'podas' | 'usuarios';
+type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'podas' | 'informes' | 'backup' | 'usuarios';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -43,6 +49,7 @@ export default function App() {
   const [perfilCargando, setPerfilCargando] = useState(false);
   const [perfilError, setPerfilError] = useState<string | null>(null);
   const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState<boolean>(() => {
     try {
       const stored = localStorage.getItem('maderas.dark');
@@ -61,6 +68,13 @@ export default function App() {
       // ignore
     }
   }, [dark]);
+
+  useEffect(() => {
+    document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [sidebarOpen]);
 
   useEffect(() => {
     if (GOD_MODE) return;
@@ -168,10 +182,30 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-[var(--bg)]">
-      <aside className="fixed top-0 left-0 h-full w-[260px] bg-[#162839] border-r border-[var(--border)] flex flex-col py-2 z-50 overflow-hidden">
-        <div className="px-6 py-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">DANPA MADERAS</h1>
-          <p className="text-[var(--muted)] text-xs font-medium mt-1">Venta de Maderas</p>
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`fixed top-0 left-0 h-full w-[260px] bg-[#162839] border-r border-[var(--border)] flex flex-col py-2 z-50 overflow-hidden transform transition-transform duration-300 lg:translate-x-0 ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="px-6 py-8 flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-white tracking-tight">DANPA MADERAS</h1>
+            <p className="text-[var(--muted)] text-xs font-medium mt-1">Venta de Maderas</p>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden text-[var(--muted)] hover:text-white p-1 -mr-2"
+            title="Cerrar menú"
+          >
+            <X className="w-6 h-6" />
+          </button>
         </div>
 
         <nav className="flex-grow mt-2">
@@ -190,11 +224,16 @@ export default function App() {
                 { id: 'agenda', label: 'Contrataciones y Pliegos', Icon: Briefcase },
                 { id: 'podas', label: 'Podas de Árboles', Icon: Scissors },
                 { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
+                { id: 'informes', label: 'Informes', Icon: BarChart3 },
+                { id: 'backup', label: 'Backup', Icon: Database },
               ] as { id: View; label: string; Icon: LucideIcon }[]
             ).map(({ id, label, Icon }) => (
               <li key={id}>
                 <button
-                  onClick={() => setCurrentView(id)}
+                  onClick={() => {
+                    setCurrentView(id);
+                    setSidebarOpen(false);
+                  }}
                   className={`w-full flex items-center gap-3 px-6 py-3 transition-colors duration-200 ${
                     currentView === id
                       ? 'border-l-4 border-[var(--primary)] bg-[#36485b] text-white'
@@ -235,7 +274,18 @@ export default function App() {
         </div>
       </aside>
 
-      <div className="ml-[260px] flex-1 flex flex-col min-w-0">
+      <div className="lg:ml-[260px] flex-1 flex flex-col min-w-0">
+        <header className="lg:hidden sticky top-0 z-30 bg-[#162839] flex items-center gap-3 px-4 py-3 shadow-lg">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="text-[var(--muted)] hover:text-white p-1"
+            title="Abrir menú"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <h1 className="text-lg font-bold text-white tracking-tight">DANPA MADERAS</h1>
+        </header>
+
         {currentView === 'dashboard' && <Dashboard corredorId={corredorId} />}
         {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
         {currentView === 'productos' && <ProductosView />}
@@ -246,6 +296,8 @@ export default function App() {
         {currentView === 'agenda' && <AgendaView corredorId={corredorId} />}
         {currentView === 'podas' && <PodasView corredorId={corredorId} />}
         {currentView === 'finanzas' && <FinanzasView corredorId={corredorId} />}
+        {currentView === 'informes' && <InformesView corredorId={corredorId} />}
+        {currentView === 'backup' && <BackupView corredorId={corredorId} />}
       </div>
     </div>
   );

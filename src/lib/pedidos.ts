@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import type { Database } from '../types';
+import { crearNotificacion } from './notificaciones';
 
 export interface NuevoItemPedido {
   producto_id: string;
@@ -60,17 +61,51 @@ export async function crearPedido(
       throw new Error(`Error al guardar los ítems del pedido: ${itemsError.message}`);
     }
 
-    // 3. Descontar stock
+    // 3. Verificar y descontar stock (con rollback si insuficiente)
     for (const i of items) {
-      const { data: prod } = await supabase
+      const { data: prod, error: prodErr } = await supabase
         .from('productos')
-        .select('stock')
+        .select('stock, stock_minimo')
         .eq('id', i.producto_id)
         .single();
 
-      if (prod) {
-        const nuevoStock = Math.max(0, (prod.stock || 0) - i.cantidad);
-        await supabase.from('productos').update({ stock: nuevoStock }).eq('id', i.producto_id);
+      if (prodErr || !prod) {
+        await supabase.from('pedido_items').delete().eq('pedido_id', pedido.id);
+        await supabase.from('pedidos').delete().eq('id', pedido.id);
+        throw new Error(`Producto no encontrado o error de stock.`);
+      }
+
+      const stockActual = prod.stock || 0;
+      if (stockActual < i.cantidad) {
+        await supabase.from('pedido_items').delete().eq('pedido_id', pedido.id);
+        await supabase.from('pedidos').delete().eq('id', pedido.id);
+        throw new Error(`Stock insuficiente para procesar el pedido.`);
+      }
+
+      const nuevoStock = stockActual - i.cantidad;
+      await supabase.from('productos').update({ stock: nuevoStock }).eq('id', i.producto_id);
+      if (nuevoStock <= 0) {
+        await crearNotificacion({
+          corredor_id: corredorId,
+          tipo: 'stock_bajo',
+          nivel: 'error',
+          titulo: 'Stock agotado',
+          mensaje: `El producto ${i.producto_id} está agotado.`, // TODO: obtener nombre real del producto
+          enlace: `/productos`,
+          dato_referencia: i.producto_id,
+          leido: false,
+        });
+      } else if (nuevoStock <= (prod.stock_minimo || 0)) {
+        await crearNotificacion({
+          corredor_id: corredorId,
+          tipo: 'stock_bajo',
+          nivel: 'warning',
+          titulo: 'Stock bajo',
+          mensaje: `El producto ${i.producto_id} está por debajo del mínimo.`, // TODO: obtener nombre real del producto
+          enlace: `/productos`,
+          dato_referencia: i.producto_id,
+          leido: false,
+        });
       }
     }
 

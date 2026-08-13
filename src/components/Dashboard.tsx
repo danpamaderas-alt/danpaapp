@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { dinero, formatDate } from '../lib/format';
+import { dinero, formatDate, parseDateOnly } from '../lib/format';
 import type { Database } from '../types';
+import { type AgendaItem } from '../lib/agenda';
 import {
   PackageOpen,
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   Calendar,
   Factory,
   CheckCircle2,
+  Briefcase,
 } from 'lucide-react';
 
 type Pedido = Database['public']['Tables']['pedidos']['Row'];
@@ -30,6 +32,7 @@ interface DashboardProps {
 export default function Dashboard({ corredorId }: DashboardProps) {
   const [pedidos, setPedidos] = useState<PedidoConDetalles[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [agenda, setAgenda] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<PedidoConDetalles | null>(null);
@@ -42,7 +45,7 @@ export default function Dashboard({ corredorId }: DashboardProps) {
         setLoading(true);
         setError(null);
 
-        const [{ data: pData, error: pErr }, { data: prodData, error: prodErr }] = await Promise.all([
+        const [{ data: pData, error: pErr }, { data: prodData, error: prodErr }, { data: agendaData, error: agendaErr }] = await Promise.all([
           supabase
             .from('pedidos')
             .select('*, clientes(*), pedido_items(*)')
@@ -50,13 +53,20 @@ export default function Dashboard({ corredorId }: DashboardProps) {
             .order('created_at', { ascending: false })
             .limit(100),
           supabase.from('productos').select('*').order('nombre', { ascending: true }),
+          supabase
+            .from('agenda')
+            .select('*')
+            .eq('corredor_id', corredorId)
+            .order('fecha', { ascending: true, nullsFirst: true }),
         ]);
 
         if (pErr) throw pErr;
         if (prodErr) throw prodErr;
+        if (agendaErr) throw agendaErr;
 
         setPedidos((pData as unknown as PedidoConDetalles[]) || []);
         setProductos((prodData as Producto[]) || []);
+        setAgenda((agendaData as AgendaItem[]) || []);
       } catch (err: any) {
         console.error('Error fetching dashboard:', err);
         setError(err.message || 'Error al cargar los datos.');
@@ -76,9 +86,20 @@ export default function Dashboard({ corredorId }: DashboardProps) {
   const enProceso = pedidos.filter((p) => p.estado !== 'Entregado').length;
   const stockBajo = productos.filter((p) => p.activo && p.stock <= (p.stock_minimo || 0));
 
+  const agendaProxima = useMemo(() => {
+    const hoy = new Date();
+    hoy.setHours(0, 0, 0, 0);
+    const limite = new Date(hoy);
+    limite.setDate(hoy.getDate() + 15);
+    return agenda
+      .filter((a) => a.estado === 'pendiente')
+      .filter((a) => !a.fecha || (parseDateOnly(a.fecha) >= hoy && parseDateOnly(a.fecha) <= limite))
+      .slice(0, 5);
+  }, [agenda]);
+
   return (
     <div className="flex-1 flex flex-col min-h-screen bg-[var(--bg)]">
-      <main className="flex-1 p-8 max-w-[1440px] mx-auto w-full">
+      <main className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Resumen de Operativa</h2>
           <p className="text-[var(--text2)] mt-1">Estado de ventas, cobranzas y stock de tu operación.</p>
@@ -138,6 +159,18 @@ export default function Dashboard({ corredorId }: DashboardProps) {
                 <div className="text-sm text-[var(--amber-text3)]">
                   <span className="font-semibold">Alerta de stock: </span>
                   {stockBajo.map((p) => `${p.nombre} (${p.stock} uni.)`).join(', ')}
+                </div>
+              </div>
+            )}
+
+            {agendaProxima.length > 0 && (
+              <div className="bg-[var(--blue-soft)] border border-[var(--primary)]/30 rounded-xl p-4 flex items-start gap-3 mb-8">
+                <Briefcase className="w-5 h-5 text-[var(--primary)] flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-[var(--text)]">
+                  <span className="font-semibold">Próximos pliegos y contrataciones: </span>
+                  {agendaProxima
+                    .map((a) => `${a.titulo}${a.fecha ? ` (${formatDate(a.fecha)})` : ' (sin fecha)'} — ${a.tipo === 'pliego' ? 'Pliego' : 'Contratación'}`)
+                    .join(' · ')}
                 </div>
               </div>
             )}

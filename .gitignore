@@ -10,4 +10,5 @@ coverage/
 
 # Herramientas de agente
 .agents/
+.opencode/
 

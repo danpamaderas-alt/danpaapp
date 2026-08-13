@@ -97,6 +97,17 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
       .filter((l) => l.producto_id && l.cantidad > 0)
       .map((l) => ({ producto_id: l.producto_id, cantidad: l.cantidad, precio_unitario: l.precio_unitario }));
 
+    const stockInsuficiente = items.find((i) => {
+      const p = catalogoPorId[i.producto_id];
+      return p && i.cantidad > (p.stock || 0);
+    });
+    if (stockInsuficiente) {
+      const p = catalogoPorId[stockInsuficiente.producto_id];
+      setError(`Stock insuficiente para "${p?.nombre}": hay ${p?.stock} unidades.`);
+      setSubmitting(false);
+      return;
+    }
+
     const result = await crearPedido(corredorId, clienteId || null, items, notas || undefined);
 
     setSubmitting(false);
@@ -120,7 +131,7 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
   }
 
   return (
-    <div className="flex-1 p-8 max-w-4xl mx-auto w-full">
+    <div className="flex-1 p-4 sm:p-8 max-w-4xl mx-auto w-full">
       <button
         onClick={() => window.history.back()}
         className="flex items-center gap-2 text-[var(--text2)] hover:text-[var(--text)] transition-colors mb-6 font-medium text-sm"

@@ -1,20 +1,37 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+export type Notificacion = Database['public']['Tables']['notificaciones']['Row'];
+
+export interface NuevaNotificacion {
+  corredor_id: string;
+  tipo: TipoNotificacion;
+  nivel: NivelNotificacion;
+  titulo: string;
+  mensaje: string;
+  enlace?: string;
+  dato_referencia?: string;
+  leido: boolean;
+  creado_en?: string;
+}
+
+export type TipoNotificacion = 'stock_bajo' | 'agenda_proxima' | 'pago_pendiente' | 'mantenimiento';
+export type NivelNotificacion = 'info' | 'warning' | 'error' | 'success';
+
 export interface Database {
   public: {
     Tables: {
       usuarios: {
         Row: {
           id: string;
-          email: string | null;
+          email: string;
           nombre: string;
           perfil: string;
           activo: boolean;
           created_at: string;
         };
         Insert: {
-          id?: string;
-          email?: string | null;
+          id: string;
+          email: string;
           nombre: string;
           perfil?: string;
           activo?: boolean;
@@ -22,13 +39,13 @@ export interface Database {
         };
         Update: {
           id?: string;
-          email?: string | null;
+          email?: string;
           nombre?: string;
           perfil?: string;
           activo?: boolean;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [];
       };
       productos: {
         Row: {
@@ -55,7 +72,7 @@ export interface Database {
           id?: string;
           nombre: string;
           descripcion?: string | null;
-          precio: number;
+          precio?: number;
           stock?: number;
           activo?: boolean;
           imagen_url?: string | null;
@@ -91,7 +108,15 @@ export interface Database {
           costo_otros?: number;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'pedido_items_producto_id_fkey';
+            columns: ['producto_id'];
+            isOneToOne: false;
+            referencedRelation: 'pedido_items';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       clientes: {
         Row: {
@@ -133,7 +158,36 @@ export interface Database {
           activo?: boolean;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'clientes_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedidos_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'pedidos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'visitas_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'visitas';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cliente_notas_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'cliente_notas';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       pedidos: {
         Row: {
@@ -154,7 +208,7 @@ export interface Database {
           id?: string;
           corredor_id: string;
           cliente_id?: string | null;
-          total: number;
+          total?: number;
           notas?: string | null;
           estado?: string;
           estado_pago?: string;
@@ -178,7 +232,36 @@ export interface Database {
           referencia_pago?: string | null;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'pedidos_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedidos_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'clientes';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedido_items_pedido_id_fkey';
+            columns: ['pedido_id'];
+            isOneToOne: false;
+            referencedRelation: 'pedido_items';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'movimientos_pedido_id_fkey';
+            columns: ['pedido_id'];
+            isOneToOne: false;
+            referencedRelation: 'movimientos';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       pedido_items: {
         Row: {
@@ -205,7 +288,22 @@ export interface Database {
           precio_unitario?: number;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'pedido_items_pedido_id_fkey';
+            columns: ['pedido_id'];
+            isOneToOne: false;
+            referencedRelation: 'pedidos';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedido_items_producto_id_fkey';
+            columns: ['producto_id'];
+            isOneToOne: false;
+            referencedRelation: 'productos';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       movimientos: {
         Row: {
@@ -230,7 +328,7 @@ export interface Database {
           corredor_id: string;
           tipo: string;
           concepto: string;
-          monto: number;
+          monto?: number;
           categoria?: string;
           fecha?: string;
           notas?: string | null;
@@ -259,7 +357,29 @@ export interface Database {
           nro_factura?: string | null;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'movimientos_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'movimientos_creado_por_fkey';
+            columns: ['creado_por'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'movimientos_pedido_id_fkey';
+            columns: ['pedido_id'];
+            isOneToOne: false;
+            referencedRelation: 'pedidos';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       movimientos_opciones: {
         Row: {
@@ -283,7 +403,149 @@ export interface Database {
           valor?: string;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'movimientos_opciones_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      notificaciones: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          tipo: string;
+          nivel: string;
+          titulo: string;
+          mensaje: string;
+          enlace: string | null;
+          dato_referencia: string | null;
+          leido: boolean;
+          creado_en: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          tipo: string;
+          nivel: string;
+          titulo: string;
+          mensaje: string;
+          enlace?: string | null;
+          dato_referencia?: string | null;
+          leido: boolean;
+          creado_en?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          tipo?: string;
+          nivel?: string;
+          titulo?: string;
+          mensaje?: string;
+          enlace?: string | null;
+          dato_referencia?: string | null;
+          leido?: boolean;
+          creado_en?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'notificaciones_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      visitas: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          cliente_id: string | null;
+          fecha: string;
+          estado: string;
+          latitud: number | null;
+          longitud: number | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          cliente_id?: string | null;
+          fecha?: string;
+          estado?: string;
+          latitud?: number | null;
+          longitud?: number | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          cliente_id?: string | null;
+          fecha?: string;
+          estado?: string;
+          latitud?: number | null;
+          longitud?: number | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'visitas_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'visitas_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'clientes';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      cliente_notas: {
+        Row: {
+          id: string;
+          cliente_id: string;
+          corredor_id: string;
+          nota: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          cliente_id: string;
+          corredor_id: string;
+          nota: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          cliente_id?: string;
+          corredor_id?: string;
+          nota?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'cliente_notas_cliente_id_fkey';
+            columns: ['cliente_id'];
+            isOneToOne: false;
+            referencedRelation: 'clientes';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'cliente_notas_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       agenda: {
         Row: {
@@ -322,7 +584,15 @@ export interface Database {
           notas?: string | null;
           created_at?: string;
         };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'agenda_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
       };
       podas: {
         Row: {
@@ -340,7 +610,7 @@ export interface Database {
         Insert: {
           id?: string;
           corredor_id: string;
-          cantidad_arboles: number;
+          cantidad_arboles?: number;
           detalle: string;
           tipo_arbol?: string | null;
           tipo_poda?: string | null;
@@ -361,100 +631,20 @@ export interface Database {
           notas?: string | null;
           created_at?: string;
         };
-        Relationships: any[];
-      };
-      visitas: {
-        Row: {
-          id: string;
-          corredor_id: string;
-          cliente_id: string | null;
-          fecha: string;
-          estado: string;
-          latitud: number | null;
-          longitud: number | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          corredor_id: string;
-          cliente_id?: string | null;
-          fecha?: string;
-          estado: string;
-          latitud?: number | null;
-          longitud?: number | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          corredor_id?: string;
-          cliente_id?: string | null;
-          fecha?: string;
-          estado?: string;
-          latitud?: number | null;
-          longitud?: number | null;
-          created_at?: string;
-        };
-        Relationships: any[];
-      };
-      cliente_notas: {
-        Row: {
-          id: string;
-          cliente_id: string | null;
-          corredor_id: string | null;
-          nota: string;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          cliente_id?: string | null;
-          corredor_id?: string | null;
-          nota: string;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          cliente_id?: string | null;
-          corredor_id?: string | null;
-          nota?: string;
-          created_at?: string;
-        };
-        Relationships: any[];
+        Relationships: [
+          {
+            foreignKeyName: 'podas_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
       };
     };
-    Views: {};
-    Functions: {
-      is_admin: {
-        Args: Record<string, never>;
-        Returns: boolean;
-      };
-      admin_listar_usuarios: {
-        Args: Record<string, never>;
-        Returns: Array<Database['public']['Tables']['usuarios']['Row']>;
-      };
-      admin_crear_usuario: {
-        Args: {
-          p_nombre: string;
-          p_email: string;
-          p_password: string;
-          p_perfil: string;
-        };
-        Returns: string;
-      };
-      admin_set_activo: {
-        Args: {
-          p_user_id: string;
-          p_activo: boolean;
-        };
-        Returns: undefined;
-      };
-      admin_set_password: {
-        Args: {
-          p_user_id: string;
-          p_password: string;
-        };
-        Returns: undefined;
-      };
-    };
-    Enums: {};
+    Views: Record<string, never>;
+    Functions: Record<string, { Args: any; Returns: any }>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }
