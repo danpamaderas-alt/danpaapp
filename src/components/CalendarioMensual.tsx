@@ -1,7 +1,14 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Pencil } from 'lucide-react';
-import { formatDate } from '../lib/format';
-import { etiquetaEstado, etiquetaTipo, type AgendaItem } from '../lib/agenda';
+import { ChevronLeft, ChevronRight, Plus, Pencil, MapPin, Flag, CheckSquare } from 'lucide-react';
+import { formatDate, parseDateOnly } from '../lib/format';
+import {
+  etiquetaEstado,
+  etiquetaTipo,
+  etiquetaPrioridad,
+  etiquetaRecurrencia,
+  ocurrenciasEnMes,
+  type AgendaItem,
+} from '../lib/agenda';
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 
@@ -25,13 +32,22 @@ const chipEstado = (estado: string) => {
   }
 };
 
+const prioridadClase = (p: string | null | undefined) => {
+  switch (p) {
+    case 'alta': return 'text-[var(--danger-deep)] bg-[var(--danger-soft)]';
+    case 'baja': return 'text-[var(--primary-deep)] bg-[var(--blue-soft)]';
+    default: return 'text-[var(--amber-text)] bg-[var(--amber-soft)]';
+  }
+};
+
 interface CalendarioMensualProps {
   items: AgendaItem[];
   onEditar: (i: AgendaItem) => void;
   onAgregar: (fechaISO: string) => void;
+  onToggleTarea?: (id: string, indice: number, hecho: boolean) => void;
 }
 
-export default function CalendarioMensual({ items, onEditar, onAgregar }: CalendarioMensualProps) {
+export default function CalendarioMensual({ items, onEditar, onAgregar, onToggleTarea }: CalendarioMensualProps) {
   const [mesActual, setMesActual] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -42,12 +58,20 @@ export default function CalendarioMensual({ items, onEditar, onAgregar }: Calend
     const mapa: Record<string, AgendaItem[]> = {};
     for (const i of items) {
       if (!i.fecha) continue;
-      const clave = i.fecha.slice(0, 10);
-      if (!mapa[clave]) mapa[clave] = [];
-      mapa[clave].push(i);
+      const ocurrencias = ocurrenciasEnMes(
+        parseDateOnly(i.fecha),
+        i.recurrencia,
+        mesActual.getFullYear(),
+        mesActual.getMonth()
+      );
+      for (const o of ocurrencias) {
+        const clave = fechaISO(o.fecha);
+        if (!mapa[clave]) mapa[clave] = [];
+        mapa[clave].push(i);
+      }
     }
     return mapa;
-  }, [items]);
+  }, [items, mesActual]);
 
   const semanas = useMemo(() => {
     const anio = mesActual.getFullYear();
@@ -152,8 +176,11 @@ export default function CalendarioMensual({ items, onEditar, onAgregar }: Calend
                       e.stopPropagation();
                       onEditar(i);
                     }}
-                    title={`${i.titulo}${i.hora ? ` - ${i.hora.slice(0, 5)}` : ''}`}
-                    className={`text-[10px] leading-tight text-left px-1.5 py-0.5 rounded truncate ${chipEstado(i.estado)} hover:opacity-80`}
+                    title={`${i.titulo}${i.hora ? ` - ${i.hora.slice(0, 5)} hs` : ''}${i.prioridad === 'alta' ? ' - Prioridad alta' : ''}`}
+                    className={`text-[10px] leading-tight text-left px-1.5 py-0.5 rounded truncate hover:opacity-80 ${
+                      i.color ? 'text-white' : chipEstado(i.estado)
+                    } ${i.prioridad === 'alta' && !i.color ? 'ring-1 ring-[var(--danger)]' : ''}`}
+                    style={i.color ? { backgroundColor: i.color } : undefined}
                   >
                     {i.hora ? `${i.hora.slice(0, 5)} ` : ''}
                     {i.titulo}
@@ -174,6 +201,8 @@ export default function CalendarioMensual({ items, onEditar, onAgregar }: Calend
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[var(--primary-soft)] border border-[var(--primary)]" /> Adjudicado</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[var(--danger-soft)] border border-[var(--danger)]" /> Perdido</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[var(--gray-soft)] border border-[var(--border)]" /> Vencido</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-[var(--danger)]" /> Prioridad alta</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-gradient-to-r from-[#ef4444] via-[#f59e0b] to-[#3b82f6]" /> Color elegido</span>
       </div>
 
       {diaSeleccionado && (
@@ -195,28 +224,70 @@ export default function CalendarioMensual({ items, onEditar, onAgregar }: Calend
               {itemsDelDia.map((i) => (
                 <div
                   key={i.id}
-                  className="flex items-center justify-between gap-3 border border-[var(--border)] rounded-lg px-4 py-3 hover:bg-[var(--field)] transition-colors"
+                  className="border border-[var(--border)] rounded-lg px-4 py-3 hover:bg-[var(--field)] transition-colors"
                 >
-                  <div className="min-w-0">
-                    <p className="font-medium text-[var(--text)] truncate">{i.titulo}</p>
-                    <p className="text-xs text-[var(--text2)]">
-                      {etiquetaTipo(i.tipo)}
-                      {i.hora ? ` · ${i.hora.slice(0, 5)} hs` : ''}
-                      {i.organismo ? ` · ${i.organismo}` : ''}
-                    </p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-[var(--text)] truncate">{i.titulo}</p>
+                      <p className="text-xs text-[var(--text2)] mt-0.5">
+                        {etiquetaTipo(i.tipo)}
+                        {i.hora ? ` · ${i.hora.slice(0, 5)} hs` : ''}
+                        {i.hora_fin ? ` - ${i.hora_fin.slice(0, 5)} hs` : ''}
+                        {i.organismo ? ` · ${i.organismo}` : ''}
+                      </p>
+                      {(i.lugar || i.prioridad || i.recurrencia !== 'ninguna') && (
+                        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-[var(--text2)]">
+                          {i.lugar && (
+                            <span className="flex items-center gap-1">
+                              <MapPin className="w-3.5 h-3.5" />
+                              {i.lugar}
+                            </span>
+                          )}
+                          {i.prioridad && (
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${prioridadClase(i.prioridad)}`}>
+                              <Flag className="w-3 h-3" />
+                              Prioridad {etiquetaPrioridad(i.prioridad)}
+                            </span>
+                          )}
+                          {i.recurrencia && i.recurrencia !== 'ninguna' && (
+                            <span className="flex items-center gap-1">
+                              {etiquetaRecurrencia(i.recurrencia)}
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 flex-shrink-0">
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${chipEstado(i.estado)}`}>
+                        {etiquetaEstado(i.estado)}
+                      </span>
+                      <button
+                        onClick={() => onEditar(i)}
+                        className="p-2 text-[var(--text2)] hover:text-[var(--primary)] hover:bg-[var(--primary-soft)] rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${chipEstado(i.estado)}`}>
-                      {etiquetaEstado(i.estado)}
-                    </span>
-                    <button
-                      onClick={() => onEditar(i)}
-                      className="p-2 text-[var(--text2)] hover:text-[var(--primary)] hover:bg-[var(--primary-soft)] rounded-lg transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                  </div>
+                  {Array.isArray(i.tareas) && i.tareas.length > 0 && onToggleTarea && (
+                    <div className="mt-3 pt-3 border-t border-[var(--blue-header)] space-y-1.5">
+                      {i.tareas.map((t, idx) => (
+                        <label key={t.id} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={t.hecho}
+                            onChange={() => onToggleTarea(i.id, idx, !t.hecho)}
+                            className="w-4 h-4 accent-[var(--primary)]"
+                          />
+                          <span className={`text-sm flex items-center gap-1.5 ${t.hecho ? 'line-through text-[var(--text2)]' : 'text-[var(--text)]'}`}>
+                            <CheckSquare className="w-3.5 h-3.5 text-[var(--text2)]" />
+                            {t.texto}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

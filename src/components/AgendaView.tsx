@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchAgenda,
-  crearAgenda,
-  actualizarAgenda,
   eliminarAgenda,
   ESTADOS_AGENDA,
   etiquetaEstado,
   type AgendaItem,
-  type AgendaInput,
 } from '../lib/agenda';
 import { dinero, formatDate, getErrorMessage } from '../lib/format';
 import {
@@ -21,7 +18,6 @@ import {
   Plus,
   Pencil,
   Trash2,
-  X,
   Building2,
   CalendarDays,
   Bell,
@@ -29,35 +25,11 @@ import {
   Calendar,
 } from 'lucide-react';
 import CalendarioMensual from './CalendarioMensual';
+import AgendaModal, { emptyAgendaForm, agendaFormDesdeItem, type AgendaModalState } from './AgendaModal';
 
 interface AgendaViewProps {
   corredorId: string;
 }
-
-interface FormState {
-  id?: string;
-  tipo: string;
-  titulo: string;
-  organismo: string;
-  monto: string;
-  fecha: string;
-  hora: string;
-  dias_aviso: string;
-  estado: string;
-  notas: string;
-}
-
-const emptyForm = (tipo: string): FormState => ({
-  tipo,
-  titulo: '',
-  organismo: '',
-  monto: '',
-  fecha: '',
-  hora: '',
-  dias_aviso: '',
-  estado: 'pendiente',
-  notas: '',
-});
 
 const estadoBadge = (estado: string) => {
   switch (estado) {
@@ -80,8 +52,7 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm('contratacion'));
+  const [modal, setModal] = useState<AgendaModalState | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState<AgendaItem | null>(null);
   const [vista, setVista] = useState<'lista' | 'calendario'>('lista');
@@ -156,67 +127,11 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
     },
   ];
 
-  const abrirNuevo = () => {
-    setForm(emptyForm(tipoTab));
-    setModalOpen(true);
-  };
+  const abrirNuevo = () => setModal(emptyAgendaForm(tipoTab));
 
-  const abrirEnDia = (fecha: string) => {
-    const f = emptyForm(tipoTab);
-    f.fecha = fecha;
-    setForm(f);
-    setModalOpen(true);
-  };
+  const abrirEnDia = (fecha: string) => setModal(emptyAgendaForm(tipoTab, fecha));
 
-  const abrirEdicion = (i: AgendaItem) => {
-    setForm({
-      id: i.id,
-      tipo: i.tipo,
-      titulo: i.titulo,
-      organismo: i.organismo || '',
-      monto: i.monto ? String(i.monto) : '',
-      fecha: i.fecha ? i.fecha.slice(0, 10) : '',
-      hora: i.hora ? i.hora.slice(0, 5) : '',
-      dias_aviso: i.dias_aviso ? String(i.dias_aviso) : '',
-      estado: i.estado,
-      notas: i.notas || '',
-    });
-    setModalOpen(true);
-  };
-
-  const guardar = async () => {
-    if (!form.titulo.trim()) {
-      alert('Escribí un título.');
-      return;
-    }
-    setGuardando(true);
-    setError(null);
-    try {
-      const input: AgendaInput = {
-        corredor_id: corredorId,
-        tipo: form.tipo,
-        titulo: form.titulo.trim(),
-        organismo: form.organismo.trim() || undefined,
-        monto: form.monto ? Number(form.monto) : 0,
-        fecha: form.fecha || undefined,
-        hora: form.hora || undefined,
-        dias_aviso: form.dias_aviso ? Number(form.dias_aviso) : undefined,
-        estado: form.estado,
-        notas: form.notas.trim() || undefined,
-      };
-      if (form.id) {
-        await actualizarAgenda(form.id, input);
-      } else {
-        await crearAgenda(input);
-      }
-      setModalOpen(false);
-      await cargar();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setGuardando(false);
-    }
-  };
+  const abrirEdicion = (i: AgendaItem) => setModal(agendaFormDesdeItem(i));
 
   const confirmarBorrado = async () => {
     if (!confirmarEliminar) return;
@@ -239,7 +154,7 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Agenda</h2>
           <p className="text-[var(--text2)] mt-1">Eventos, contrataciones y pliegos con recordatorios para no perder ninguna fecha.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <div className="flex bg-[var(--field)] border border-[var(--border)] rounded-lg p-1">
             <button
               onClick={() => setTipoTab('contratacion')}
@@ -370,296 +285,125 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
           </div>
 
           {vista === 'lista' ? (
-          <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
-            <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center">
-              <h3 className="text-lg font-semibold text-[var(--text)]">
-                {tituloSeccion}
-                {contadores.montoTotal > 0 && (
-                  <span className="ml-3 text-base font-semibold text-[var(--primary)]">{dinero(contadores.montoTotal)}</span>
-                )}
-              </h3>
-              <span className="text-sm text-[var(--text2)]">{items.length} {items.length === 1 ? 'registro' : 'registros'}</span>
-            </div>
-            <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
-              <table className="w-full text-left border-collapse min-w-[680px]">
-                <thead className="sticky top-0 bg-[var(--blue-header)]">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Fecha</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Título</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Organismo</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)] text-right">Monto</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Estado</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)] text-right">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border)]">
-                  {items.length === 0 ? (
+            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
+              <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-[var(--text)]">
+                  {tituloSeccion}
+                  {contadores.montoTotal > 0 && (
+                    <span className="ml-3 text-base font-semibold text-[var(--primary)]">{dinero(contadores.montoTotal)}</span>
+                  )}
+                </h3>
+                <span className="text-sm text-[var(--text2)]">{items.length} {items.length === 1 ? 'registro' : 'registros'}</span>
+              </div>
+              <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
+                <table className="w-full text-left border-collapse min-w-[680px]">
+                  <thead className="sticky top-0 bg-[var(--blue-header)]">
                     <tr>
-                      <td colSpan={6} className="px-6 py-12 text-center text-[var(--text2)]">
-                        {esPliego ? (
-                          <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        ) : esEvento ? (
-                          <CalendarDays className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        ) : (
-                          <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                        )}
-                        <p className="font-medium">No hay {tituloSeccion.toLowerCase()} registrados</p>
-                        <p className="text-sm mt-1">Agregá uno para no perder ninguna fecha importante.</p>
-                      </td>
+                      <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Fecha</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Título</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Organismo</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)] text-right">Monto</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)]">Estado</th>
+                      <th className="px-6 py-3 text-xs font-semibold text-[var(--text2)] uppercase tracking-wider border-b border-[var(--border)] text-right">Acciones</th>
                     </tr>
-                  ) : (
-                    items.map((i) => (
-                      <tr key={i.id} className="hover:bg-[var(--field)] transition-colors">
-                        <td className="px-6 py-3.5 text-[var(--text2)] text-sm whitespace-nowrap">
-                          {i.fecha ? (
-                            <>
-                              {formatDate(i.fecha)}
-                              {i.hora && (
-                                <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--primary-deep)]">
-                                  <Clock className="w-3 h-3" />
-                                  {i.hora.slice(0, 5)}
-                                </span>
-                              )}
-                            </>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--border)]">
+                    {items.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-12 text-center text-[var(--text2)]">
+                          {esPliego ? (
+                            <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                          ) : esEvento ? (
+                            <CalendarDays className="w-12 h-12 mx-auto mb-4 opacity-50" />
                           ) : (
-                            <span className="text-[var(--muted)]">Sin fecha</span>
+                            <Briefcase className="w-12 h-12 mx-auto mb-4 opacity-50" />
                           )}
-                        </td>
-                        <td className="px-6 py-3.5">
-                          <p className="font-medium text-[var(--text)]">{i.titulo}</p>
-                          {i.dias_aviso && i.dias_aviso > 0 && (
-                            <span className="inline-flex items-center gap-1 text-xs text-[var(--text2)]">
-                              <Bell className="w-3 h-3" />
-                              Avisa {i.dias_aviso} día{i.dias_aviso > 1 ? 's' : ''} antes
-                            </span>
-                          )}
-                          {i.notas && <p className="text-xs text-[var(--text2)] line-clamp-1">{i.notas}</p>}
-                        </td>
-                        <td className="px-6 py-3.5">
-                          {i.organismo ? (
-                            <span className="inline-flex items-center gap-1.5 text-sm text-[var(--text)]">
-                              <Building2 className="w-4 h-4 text-[var(--text2)]" />
-                              {i.organismo}
-                            </span>
-                          ) : (
-                            <span className="text-sm text-[var(--muted)]">—</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-3.5 text-right font-semibold whitespace-nowrap">{i.monto ? dinero(i.monto) : <span className="text-[var(--muted)]">—</span>}</td>
-                        <td className="px-6 py-3.5">
-                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${estadoBadge(i.estado)}`}>
-                            {etiquetaEstado(i.estado)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-3.5 text-right whitespace-nowrap">
-                          <button
-                            onClick={() => abrirEdicion(i)}
-                            className="p-2 text-[var(--text2)] hover:text-[var(--primary)] hover:bg-[var(--primary-soft)] rounded-lg transition-colors"
-                            title="Editar"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => setConfirmarEliminar(i)}
-                            className="p-2 text-[var(--text2)] hover:text-[var(--danger-deep)] hover:bg-[var(--danger-soft)] rounded-lg transition-colors"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <p className="font-medium">No hay {tituloSeccion.toLowerCase()} registrados</p>
+                          <p className="text-sm mt-1">Agregá uno para no perder ninguna fecha importante.</p>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+                    ) : (
+                      items.map((i) => (
+                        <tr key={i.id} className="hover:bg-[var(--field)] transition-colors">
+                          <td className="px-6 py-3.5 text-[var(--text2)] text-sm whitespace-nowrap">
+                            {i.fecha ? (
+                              <>
+                                {formatDate(i.fecha)}
+                                {i.hora && (
+                                  <span className="ml-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--primary-deep)]">
+                                    <Clock className="w-3 h-3" />
+                                    {i.hora.slice(0, 5)}
+                                    {i.hora_fin ? `-${i.hora_fin.slice(0, 5)}` : ''}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-[var(--muted)]">Sin fecha</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-3.5">
+                            <p className="font-medium text-[var(--text)]">{i.titulo}</p>
+                            {i.lugar && (
+                              <p className="text-xs text-[var(--text2)] flex items-center gap-1">
+                                <Building2 className="w-3 h-3" />
+                                {i.lugar}
+                              </p>
+                            )}
+                            {i.dias_aviso && i.dias_aviso > 0 && (
+                              <span className="inline-flex items-center gap-1 text-xs text-[var(--text2)]">
+                                <Bell className="w-3 h-3" />
+                                Avisa {i.dias_aviso} día{i.dias_aviso > 1 ? 's' : ''} antes
+                              </span>
+                            )}
+                            {i.notas && <p className="text-xs text-[var(--text2)] line-clamp-1">{i.notas}</p>}
+                          </td>
+                          <td className="px-6 py-3.5">
+                            {i.organismo ? (
+                              <span className="inline-flex items-center gap-1.5 text-sm text-[var(--text)]">
+                                <Building2 className="w-4 h-4 text-[var(--text2)]" />
+                                {i.organismo}
+                              </span>
+                            ) : (
+                              <span className="text-sm text-[var(--muted)]">—</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-3.5 text-right font-semibold whitespace-nowrap">{i.monto ? dinero(i.monto) : <span className="text-[var(--muted)]">—</span>}</td>
+                          <td className="px-6 py-3.5">
+                            <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${estadoBadge(i.estado)}`}>
+                              {etiquetaEstado(i.estado)}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3.5 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => abrirEdicion(i)}
+                              className="p-2 text-[var(--text2)] hover:text-[var(--primary)] hover:bg-[var(--primary-soft)] rounded-lg transition-colors"
+                              title="Editar"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => setConfirmarEliminar(i)}
+                              className="p-2 text-[var(--text2)] hover:text-[var(--danger-deep)] hover:bg-[var(--danger-soft)] rounded-lg transition-colors"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
           ) : (
-          <CalendarioMensual items={items} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
+            <CalendarioMensual items={items} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
           )}
         </>
       )}
 
-      {modalOpen && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
-              <h3 className="text-xl font-bold text-[var(--text)]">
-                {form.id
-                  ? 'Editar'
-                  : form.tipo === 'pliego'
-                    ? 'Nuevo Pliego'
-                    : form.tipo === 'evento'
-                      ? 'Nuevo Evento'
-                      : 'Nueva Contratación'}
-              </h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--hover)] p-2 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, tipo: 'contratacion' })}
-                  className={`h-11 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    form.tipo === 'contratacion'
-                      ? 'bg-[var(--primary-soft)] border-[var(--primary)] text-[var(--primary-deep)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text2)] hover:bg-[var(--field)]'
-                  }`}
-                >
-                  <Briefcase className="w-4 h-4" />
-                  Contratación
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, tipo: 'pliego' })}
-                  className={`h-11 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    form.tipo === 'pliego'
-                      ? 'bg-[var(--primary-soft)] border-[var(--primary)] text-[var(--primary-deep)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text2)] hover:bg-[var(--field)]'
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  Pliego
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, tipo: 'evento' })}
-                  className={`h-11 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    form.tipo === 'evento'
-                      ? 'bg-[var(--primary-soft)] border-[var(--primary)] text-[var(--primary-deep)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text2)] hover:bg-[var(--field)]'
-                  }`}
-                >
-                  <CalendarDays className="w-4 h-4" />
-                  Evento
-                </button>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Título *</label>
-                <input
-                  type="text"
-                  value={form.titulo}
-                  onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                  placeholder="Ej. Contratación de poda Municipalidad"
-                  className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Organismo / Cliente</label>
-                  <input
-                    type="text"
-                    value={form.organismo}
-                    onChange={(e) => setForm({ ...form, organismo: e.target.value })}
-                    placeholder="Ej. Municipalidad de..."
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Monto</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.monto}
-                    onChange={(e) => setForm({ ...form, monto: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Fecha de agenda</label>
-                  <input
-                    type="date"
-                    value={form.fecha}
-                    onChange={(e) => setForm({ ...form, fecha: e.target.value })}
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Hora</label>
-                  <input
-                    type="time"
-                    value={form.hora}
-                    onChange={(e) => setForm({ ...form, hora: e.target.value })}
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Estado</label>
-                  <select
-                    value={form.estado}
-                    onChange={(e) => setForm({ ...form, estado: e.target.value })}
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  >
-                    {ESTADOS_AGENDA.map((s) => (
-                      <option key={s} value={s}>
-                        {etiquetaEstado(s)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Aviso previo (días)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={form.dias_aviso}
-                    onChange={(e) => setForm({ ...form, dias_aviso: e.target.value })}
-                    placeholder="0 = sin aviso"
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                  <p className="text-xs text-[var(--text2)]">Te avisamos con la campanita antes de la fecha.</p>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Notas</label>
-                <textarea
-                  value={form.notas}
-                  onChange={(e) => setForm({ ...form, notas: e.target.value })}
-                  rows={3}
-                  placeholder="Detalles opcionales..."
-                  className="w-full p-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                />
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3 border-t border-[var(--blue-header)]">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-5 py-2.5 text-[var(--text2)] font-medium hover:bg-[var(--blue-header)] rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={guardar}
-                  disabled={guardando}
-                  className="px-5 py-2.5 bg-[var(--primary)] text-white font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors flex items-center gap-2"
-                >
-                  {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Guardar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {modal && (
+        <AgendaModal corredorId={corredorId} initial={modal} onClose={() => setModal(null)} onSaved={cargar} />
       )}
 
       {confirmarEliminar && (

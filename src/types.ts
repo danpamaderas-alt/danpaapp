@@ -1,5 +1,11 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+export interface AgendaTarea {
+  id: string;
+  texto: string;
+  hecho: boolean;
+}
+
 export type Notificacion = Database['public']['Tables']['notificaciones']['Row'];
 
 export interface NuevaNotificacion {
@@ -567,6 +573,12 @@ export interface Database {
           monto: number;
           fecha: string | null;
           hora: string | null;
+          hora_fin: string | null;
+          lugar: string | null;
+          prioridad: string | null;
+          color: string | null;
+          recurrencia: string | null;
+          tareas: AgendaTarea[] | null;
           dias_aviso: number | null;
           estado: string;
           notas: string | null;
@@ -581,6 +593,12 @@ export interface Database {
           monto?: number;
           fecha?: string | null;
           hora?: string | null;
+          hora_fin?: string | null;
+          lugar?: string | null;
+          prioridad?: string | null;
+          color?: string | null;
+          recurrencia?: string | null;
+          tareas?: AgendaTarea[] | null;
           dias_aviso?: number | null;
           estado?: string;
           notas?: string | null;
@@ -595,6 +613,12 @@ export interface Database {
           monto?: number;
           fecha?: string | null;
           hora?: string | null;
+          hora_fin?: string | null;
+          lugar?: string | null;
+          prioridad?: string | null;
+          color?: string | null;
+          recurrencia?: string | null;
+          tareas?: AgendaTarea[] | null;
           dias_aviso?: number | null;
           estado?: string;
           notas?: string | null;

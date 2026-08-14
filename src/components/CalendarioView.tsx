@@ -1,57 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchAgenda,
-  crearAgenda,
-  actualizarAgenda,
   eliminarAgenda,
+  toggleTarea,
+  TIPOS_AGENDA,
   ESTADOS_AGENDA,
+  PRIORIDADES,
   etiquetaEstado,
+  etiquetaTipo,
+  etiquetaPrioridad,
   type AgendaItem,
-  type AgendaInput,
 } from '../lib/agenda';
 import { getErrorMessage } from '../lib/format';
-import { Loader2, AlertCircle, Plus, X, Briefcase, FileText, CalendarDays, Trash2 } from 'lucide-react';
+import { Loader2, AlertCircle, Plus, Trash2, Search } from 'lucide-react';
 import CalendarioMensual from './CalendarioMensual';
-
-interface FormState {
-  id?: string;
-  tipo: string;
-  titulo: string;
-  organismo: string;
-  monto: string;
-  fecha: string;
-  hora: string;
-  dias_aviso: string;
-  estado: string;
-  notas: string;
-}
-
-const emptyForm = (tipo: string): FormState => ({
-  tipo,
-  titulo: '',
-  organismo: '',
-  monto: '',
-  fecha: '',
-  hora: '',
-  dias_aviso: '',
-  estado: 'pendiente',
-  notas: '',
-});
+import AgendaModal, { emptyAgendaForm, agendaFormDesdeItem, type AgendaModalState } from './AgendaModal';
 
 export default function CalendarioView({ corredorId }: { corredorId: string }) {
   const [items, setItems] = useState<AgendaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm('evento'));
+  const [modal, setModal] = useState<AgendaModalState | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState<AgendaItem | null>(null);
+  const [q, setQ] = useState('');
+  const [fTipo, setFTipo] = useState('');
+  const [fEstado, setFEstado] = useState('');
+  const [fPrioridad, setFPrioridad] = useState('');
 
   const cargar = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchAgenda(corredorId);
+      const data = await fetchAgenda(corredorId, { q: q || undefined });
       setItems(data);
     } catch (err) {
       console.error(err);
@@ -59,73 +40,24 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
     } finally {
       setLoading(false);
     }
-  }, [corredorId]);
+  }, [corredorId, q]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
-  const abrirNuevo = () => {
-    setForm(emptyForm('evento'));
-    setModalOpen(true);
-  };
+  const filtrados = items.filter((i) => {
+    if (fTipo && i.tipo !== fTipo) return false;
+    if (fEstado && i.estado !== fEstado) return false;
+    if (fPrioridad && (i.prioridad || 'media') !== fPrioridad) return false;
+    return true;
+  });
 
-  const abrirEnDia = (fecha: string) => {
-    const f = emptyForm('evento');
-    f.fecha = fecha;
-    setForm(f);
-    setModalOpen(true);
-  };
+  const abrirNuevo = () => setModal(emptyAgendaForm('evento'));
 
-  const abrirEdicion = (i: AgendaItem) => {
-    setForm({
-      id: i.id,
-      tipo: i.tipo,
-      titulo: i.titulo,
-      organismo: i.organismo || '',
-      monto: i.monto ? String(i.monto) : '',
-      fecha: i.fecha ? i.fecha.slice(0, 10) : '',
-      hora: i.hora ? i.hora.slice(0, 5) : '',
-      dias_aviso: i.dias_aviso ? String(i.dias_aviso) : '',
-      estado: i.estado,
-      notas: i.notas || '',
-    });
-    setModalOpen(true);
-  };
+  const abrirEnDia = (fecha: string) => setModal(emptyAgendaForm('evento', fecha));
 
-  const guardar = async () => {
-    if (!form.titulo.trim()) {
-      alert('Escribí un título.');
-      return;
-    }
-    setGuardando(true);
-    setError(null);
-    try {
-      const input: AgendaInput = {
-        corredor_id: corredorId,
-        tipo: form.tipo,
-        titulo: form.titulo.trim(),
-        organismo: form.organismo.trim() || undefined,
-        monto: form.monto ? Number(form.monto) : 0,
-        fecha: form.fecha || undefined,
-        hora: form.hora || undefined,
-        dias_aviso: form.dias_aviso ? Number(form.dias_aviso) : undefined,
-        estado: form.estado,
-        notas: form.notas.trim() || undefined,
-      };
-      if (form.id) {
-        await actualizarAgenda(form.id, input);
-      } else {
-        await crearAgenda(input);
-      }
-      setModalOpen(false);
-      await cargar();
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setGuardando(false);
-    }
-  };
+  const abrirEdicion = (i: AgendaItem) => setModal(agendaFormDesdeItem(i));
 
   const confirmarBorrado = async () => {
     if (!confirmarEliminar) return;
@@ -140,6 +72,17 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
       setGuardando(false);
     }
   };
+
+  const marcarTarea = async (id: string, indice: number, hecho: boolean) => {
+    try {
+      await toggleTarea(id, indice, hecho);
+      await cargar();
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const selectClase = 'w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)] text-sm';
 
   return (
     <div className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
@@ -157,6 +100,43 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
         </button>
       </div>
 
+      <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="relative sm:col-span-2">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text2)]" />
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Buscar por título, organismo, lugar..."
+            className="w-full h-11 pl-9 pr-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)] text-sm"
+          />
+        </div>
+        <select value={fTipo} onChange={(e) => setFTipo(e.target.value)} className={selectClase}>
+          <option value="">Tipo: Todos</option>
+          {TIPOS_AGENDA.map((t) => (
+            <option key={t} value={t}>
+              {etiquetaTipo(t)}
+            </option>
+          ))}
+        </select>
+        <select value={fEstado} onChange={(e) => setFEstado(e.target.value)} className={selectClase}>
+          <option value="">Estado: Todos</option>
+          {ESTADOS_AGENDA.map((s) => (
+            <option key={s} value={s}>
+              {etiquetaEstado(s)}
+            </option>
+          ))}
+        </select>
+        <select value={fPrioridad} onChange={(e) => setFPrioridad(e.target.value)} className={selectClase}>
+          <option value="">Prioridad: Todas</option>
+          {PRIORIDADES.map((p) => (
+            <option key={p.id} value={p.id}>
+              {etiquetaPrioridad(p.id)}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {error && (
         <div className="bg-[var(--danger-soft)] text-[var(--danger-deep)] p-4 rounded-xl flex items-start gap-4 mb-8">
           <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />
@@ -170,189 +150,24 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
           <p>Cargando calendario...</p>
         </div>
       ) : (
-        <CalendarioMensual items={items} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
+        <>
+          {filtrados.length === 0 ? (
+            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] py-16 text-center text-[var(--text2)]">
+              No hay actividades que coincidan con los filtros.
+            </div>
+          ) : (
+            <CalendarioMensual
+              items={filtrados}
+              onEditar={abrirEdicion}
+              onAgregar={abrirEnDia}
+              onToggleTarea={marcarTarea}
+            />
+          )}
+        </>
       )}
 
-      {modalOpen && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-            <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
-              <h3 className="text-xl font-bold text-[var(--text)]">
-                {form.id
-                  ? 'Editar'
-                  : form.tipo === 'pliego'
-                    ? 'Nuevo Pliego'
-                    : form.tipo === 'evento'
-                      ? 'Nuevo Evento'
-                      : 'Nueva Contratación'}
-              </h3>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--hover)] p-2 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, tipo: 'contratacion' })}
-                  className={`h-11 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    form.tipo === 'contratacion'
-                      ? 'bg-[var(--primary-soft)] border-[var(--primary)] text-[var(--primary-deep)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text2)] hover:bg-[var(--field)]'
-                  }`}
-                >
-                  <Briefcase className="w-4 h-4" />
-                  Contratación
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, tipo: 'pliego' })}
-                  className={`h-11 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    form.tipo === 'pliego'
-                      ? 'bg-[var(--primary-soft)] border-[var(--primary)] text-[var(--primary-deep)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text2)] hover:bg-[var(--field)]'
-                  }`}
-                >
-                  <FileText className="w-4 h-4" />
-                  Pliego
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, tipo: 'evento' })}
-                  className={`h-11 rounded-lg border text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    form.tipo === 'evento'
-                      ? 'bg-[var(--primary-soft)] border-[var(--primary)] text-[var(--primary-deep)]'
-                      : 'bg-[var(--surface)] border-[var(--border)] text-[var(--text2)] hover:bg-[var(--field)]'
-                  }`}
-                >
-                  <CalendarDays className="w-4 h-4" />
-                  Evento
-                </button>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Título *</label>
-                <input
-                  type="text"
-                  value={form.titulo}
-                  onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-                  placeholder="Ej. Reunión con Municipalidad"
-                  className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Organismo / Cliente</label>
-                  <input
-                    type="text"
-                    value={form.organismo}
-                    onChange={(e) => setForm({ ...form, organismo: e.target.value })}
-                    placeholder="Ej. Municipalidad de..."
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Monto</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={form.monto}
-                    onChange={(e) => setForm({ ...form, monto: e.target.value })}
-                    placeholder="0.00"
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Fecha de agenda</label>
-                  <input
-                    type="date"
-                    value={form.fecha}
-                    onChange={(e) => setForm({ ...form, fecha: e.target.value })}
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Hora</label>
-                  <input
-                    type="time"
-                    value={form.hora}
-                    onChange={(e) => setForm({ ...form, hora: e.target.value })}
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Estado</label>
-                  <select
-                    value={form.estado}
-                    onChange={(e) => setForm({ ...form, estado: e.target.value })}
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  >
-                    {ESTADOS_AGENDA.map((s) => (
-                      <option key={s} value={s}>
-                        {etiquetaEstado(s)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Aviso previo (días)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="60"
-                    value={form.dias_aviso}
-                    onChange={(e) => setForm({ ...form, dias_aviso: e.target.value })}
-                    placeholder="0 = sin aviso"
-                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                  />
-                  <p className="text-xs text-[var(--text2)]">Te avisamos con la campanita antes de la fecha.</p>
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Notas</label>
-                <textarea
-                  value={form.notas}
-                  onChange={(e) => setForm({ ...form, notas: e.target.value })}
-                  rows={3}
-                  placeholder="Detalles opcionales..."
-                  className="w-full p-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
-                />
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3 border-t border-[var(--blue-header)]">
-                <button
-                  type="button"
-                  onClick={() => setModalOpen(false)}
-                  className="px-5 py-2.5 text-[var(--text2)] font-medium hover:bg-[var(--blue-header)] rounded-lg transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={guardar}
-                  disabled={guardando}
-                  className="px-5 py-2.5 bg-[var(--primary)] text-white font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors flex items-center gap-2"
-                >
-                  {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
-                  Guardar
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      {modal && (
+        <AgendaModal corredorId={corredorId} initial={modal} onClose={() => setModal(null)} onSaved={cargar} />
       )}
 
       {confirmarEliminar && (
