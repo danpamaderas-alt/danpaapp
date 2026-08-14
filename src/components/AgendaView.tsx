@@ -6,6 +6,7 @@ import {
   eliminarAgenda,
   ESTADOS_AGENDA,
   etiquetaEstado,
+  etiquetaTipo,
   type AgendaItem,
   type AgendaInput,
 } from '../lib/agenda';
@@ -25,7 +26,18 @@ import {
   Building2,
   CalendarDays,
   Bell,
+  List,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
+
+const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+
+const fechaISO = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
 
 interface AgendaViewProps {
   corredorId: string;
@@ -81,6 +93,12 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
   const [form, setForm] = useState<FormState>(emptyForm('contratacion'));
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState<AgendaItem | null>(null);
+  const [vista, setVista] = useState<'lista' | 'calendario'>('lista');
+  const [mesActual, setMesActual] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -110,6 +128,39 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
     const montoTotal = items.reduce((a, i) => a + (i.monto || 0), 0);
     return { total: items.length, pendiente, presentado, adjudicado, montoTotal };
   }, [items]);
+
+  const porDia = useMemo(() => {
+    const mapa: Record<string, AgendaItem[]> = {};
+    for (const i of items) {
+      if (!i.fecha) continue;
+      const clave = i.fecha.slice(0, 10);
+      if (!mapa[clave]) mapa[clave] = [];
+      mapa[clave].push(i);
+    }
+    return mapa;
+  }, [items]);
+
+  const semanas = useMemo(() => {
+    const anio = mesActual.getFullYear();
+    const mes = mesActual.getMonth();
+    const offset = (new Date(anio, mes, 1).getDay() + 6) % 7;
+    const diasEnMes = new Date(anio, mes + 1, 0).getDate();
+    const celdas: { fecha: Date; enMes: boolean }[] = [];
+    for (let i = offset - 1; i >= 0; i--) {
+      celdas.push({ fecha: new Date(anio, mes, -i), enMes: false });
+    }
+    for (let d = 1; d <= diasEnMes; d++) {
+      celdas.push({ fecha: new Date(anio, mes, d), enMes: true });
+    }
+    let siguiente = 1;
+    while (celdas.length < 42) {
+      celdas.push({ fecha: new Date(anio, mes + 1, siguiente), enMes: false });
+      siguiente++;
+    }
+    return celdas;
+  }, [mesActual]);
+
+  const itemsDelDia = useMemo(() => (diaSeleccionado ? porDia[diaSeleccionado] || [] : []), [diaSeleccionado, porDia]);
 
   const esPliego = tipoTab === 'pliego';
   const esEvento = tipoTab === 'evento';
@@ -155,6 +206,23 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
   const abrirNuevo = () => {
     setForm(emptyForm(tipoTab));
     setModalOpen(true);
+  };
+
+  const agregarEnDia = () => {
+    const f = emptyForm(tipoTab);
+    if (diaSeleccionado) f.fecha = diaSeleccionado;
+    setForm(f);
+    setModalOpen(true);
+  };
+
+  const cambiarMes = (delta: number) => {
+    setMesActual((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
+  };
+
+  const irHoy = () => {
+    const d = new Date();
+    setMesActual(new Date(d.getFullYear(), d.getMonth(), 1));
+    setDiaSeleccionado(fechaISO(d));
   };
 
   const abrirEdicion = (i: AgendaItem) => {
@@ -264,6 +332,30 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
               Eventos
             </button>
           </div>
+          <div className="flex bg-[var(--field)] border border-[var(--border)] rounded-lg p-1">
+            <button
+              onClick={() => setVista('lista')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                vista === 'lista'
+                  ? 'bg-[var(--primary)] text-white'
+                  : 'text-[var(--text2)] hover:text-[var(--text)]'
+              }`}
+            >
+              <List className="w-4 h-4" />
+              Lista
+            </button>
+            <button
+              onClick={() => setVista('calendario')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${
+                vista === 'calendario'
+                  ? 'bg-[var(--primary)] text-white'
+                  : 'text-[var(--text2)] hover:text-[var(--text)]'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              Calendario
+            </button>
+          </div>
           <button
             onClick={abrirNuevo}
             className="bg-[var(--primary)] text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-[var(--primary-deep)] transition-colors flex items-center justify-center gap-2 shadow-sm"
@@ -334,6 +426,7 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
             </div>
           </div>
 
+          {vista === 'lista' ? (
           <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center">
               <h3 className="text-lg font-semibold text-[var(--text)]">
@@ -438,6 +531,142 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
               </table>
             </div>
           </div>
+          ) : (
+          <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-8">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
+              <h3 className="text-lg font-semibold text-[var(--text)] capitalize">
+                {mesActual.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
+              </h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => cambiarMes(-1)}
+                  className="p-2 text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--blue-header)] rounded-lg transition-colors"
+                  title="Mes anterior"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={irHoy}
+                  className="px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--blue-header)] transition-colors"
+                >
+                  Hoy
+                </button>
+                <button
+                  onClick={() => cambiarMes(1)}
+                  className="p-2 text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--blue-header)] rounded-lg transition-colors"
+                  title="Mes siguiente"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1.5 mb-2">
+              {DIAS_SEMANA.map((d) => (
+                <div key={d} className="text-center text-xs font-semibold text-[var(--text2)] uppercase tracking-wider py-1">
+                  {d}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {semanas.map((celda, idx) => {
+                const clave = fechaISO(celda.fecha);
+                const delDia = porDia[clave] || [];
+                const esHoy = clave === fechaISO(new Date());
+                const esSeleccionado = clave === diaSeleccionado;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setDiaSeleccionado(clave)}
+                    className={`flex flex-col gap-1 rounded-lg border p-1.5 sm:p-2 min-h-[80px] sm:min-h-[96px] cursor-pointer transition-colors ${
+                      esSeleccionado
+                        ? 'border-[var(--primary)] ring-1 ring-[var(--primary)] bg-[var(--primary-soft)]'
+                        : 'border-[var(--border)] bg-[var(--bg)] hover:bg-[var(--field)]'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span
+                        className={`text-xs font-semibold ${!celda.enMes ? 'opacity-40' : ''} ${
+                          esHoy ? 'text-[var(--primary)]' : 'text-[var(--text2)]'
+                        }`}
+                      >
+                        {celda.fecha.getDate()}
+                      </span>
+                      {esHoy && <span className="w-1.5 h-1.5 rounded-full bg-[var(--primary)]" />}
+                    </div>
+                    <div className="flex flex-col gap-1 overflow-hidden">
+                      {delDia.slice(0, 3).map((i) => (
+                        <button
+                          key={i.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            abrirEdicion(i);
+                          }}
+                          title={`${i.titulo}${i.hora ? ` - ${i.hora.slice(0, 5)}` : ''}`}
+                          className={`text-[10px] leading-tight text-left px-1.5 py-0.5 rounded truncate ${estadoBadge(i.estado)} hover:opacity-80`}
+                        >
+                          {i.hora ? `${i.hora.slice(0, 5)} ` : ''}
+                          {i.titulo}
+                        </button>
+                      ))}
+                      {delDia.length > 3 && (
+                        <span className="text-[10px] text-[var(--text2)] px-1">+{delDia.length - 3} más</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {diaSeleccionado && (
+              <div className="mt-6 border-t border-[var(--border)] pt-5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                  <h4 className="font-semibold text-[var(--text)]">{formatDate(diaSeleccionado)}</h4>
+                  <button
+                    onClick={agregarEnDia}
+                    className="bg-[var(--primary)] text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-[var(--primary-deep)] transition-colors flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Agregar en este día
+                  </button>
+                </div>
+                {itemsDelDia.length === 0 ? (
+                  <p className="text-sm text-[var(--text2)]">Sin actividades para este día.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {itemsDelDia.map((i) => (
+                      <div
+                        key={i.id}
+                        className="flex items-center justify-between gap-3 border border-[var(--border)] rounded-lg px-4 py-3 hover:bg-[var(--field)] transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium text-[var(--text)] truncate">{i.titulo}</p>
+                          <p className="text-xs text-[var(--text2)]">
+                            {etiquetaTipo(i.tipo)}
+                            {i.hora ? ` · ${i.hora.slice(0, 5)} hs` : ''}
+                            {i.organismo ? ` · ${i.organismo}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${estadoBadge(i.estado)}`}>
+                            {etiquetaEstado(i.estado)}
+                          </span>
+                          <button
+                            onClick={() => abrirEdicion(i)}
+                            className="p-2 text-[var(--text2)] hover:text-[var(--primary)] hover:bg-[var(--primary-soft)] rounded-lg transition-colors"
+                            title="Editar"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          )}
         </>
       )}
 
