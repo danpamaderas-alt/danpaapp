@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchMovimientos, desglosePorCategoria, calcularSaldo, type Movimiento } from '../lib/finanzas';
 import { fetchPodas, TIPOS_PODA, type Poda } from '../lib/podas';
-import { rangoDeMes, movimientosCSV, podasCSV, descargarTexto } from '../lib/informes';
+import { rangoDeMes, movimientosCSV, podasCSV, descargarTexto, informeEscrito } from '../lib/informes';
+import { generarPDFInforme } from '../lib/pdf';
 import { dinero, hoyISO, getErrorMessage } from '../lib/format';
 import {
   BarChart3,
@@ -15,6 +16,7 @@ import {
   Download,
   Calendar,
   Scissors,
+  FileText,
 } from 'lucide-react';
 
 interface InformesViewProps {
@@ -82,6 +84,24 @@ export default function InformesView({ corredorId }: InformesViewProps) {
   );
   const podasSinTipo = useMemo(() => podas.filter((p) => !p.tipo_poda), [podas]);
 
+  const datosInforme = useMemo(
+    () => ({
+      rango,
+      movimientos,
+      podas,
+      ingresos,
+      egresos,
+      saldo,
+      desglose,
+      podasPorTipo,
+      podasSinTipo: podasSinTipo.length,
+      totalArboles,
+    }),
+    [rango, movimientos, podas, ingresos, egresos, saldo, desglose, podasPorTipo, podasSinTipo, totalArboles]
+  );
+
+  const escrito = useMemo(() => informeEscrito(datosInforme), [datosInforme]);
+
   const kpi = [
     {
       label: 'Ingresos',
@@ -124,6 +144,8 @@ export default function InformesView({ corredorId }: InformesViewProps) {
     descargarTexto(`podas_${mes}.csv`, podasCSV(podas), 'text/csv;charset=utf-8');
   };
 
+  const exportarPDF = () => generarPDFInforme(datosInforme);
+
   return (
     <div className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
       <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 no-print">
@@ -141,6 +163,13 @@ export default function InformesView({ corredorId }: InformesViewProps) {
               className="h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)] text-[var(--text)]"
             />
           </div>
+          <button
+            onClick={exportarPDF}
+            className="px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-[var(--primary)] text-white hover:bg-[var(--primary-deep)] flex items-center justify-center gap-2 shadow-sm"
+          >
+            <FileText className="w-4 h-4" />
+            Descargar PDF
+          </button>
           <button
             onClick={() => window.print()}
             className="px-4 py-2.5 rounded-lg text-sm font-medium transition-colors bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] hover:bg-[var(--blue-header)] flex items-center justify-center gap-2"
@@ -182,6 +211,20 @@ export default function InformesView({ corredorId }: InformesViewProps) {
                 <div className={`text-2xl font-bold ${k.clase}`}>{k.valor}</div>
               </div>
             ))}
+          </div>
+
+          <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-8">
+            <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[var(--text2)]" />
+              Informe escrito
+            </h3>
+            <div className="space-y-4">
+              {escrito.map((p, i) => (
+                <p key={i} className={`text-sm leading-relaxed text-[var(--text)] ${i === escrito.length - 1 ? 'font-medium' : ''}`}>
+                  {p}
+                </p>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
