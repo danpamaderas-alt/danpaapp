@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchMovimientos, desglosePorCategoria, calcularSaldo, type Movimiento } from '../lib/finanzas';
 import { fetchPodas, TIPOS_PODA, type Poda } from '../lib/podas';
 import { rangoDeMes, movimientosCSV, podasCSV, descargarTexto, informeEscrito } from '../lib/informes';
-import { generarPDFInforme } from '../lib/pdf';
+import { generarPDFInforme, TODAS_SECCIONES, type SeccionesInforme } from '../lib/pdf';
 import { dinero, hoyISO, getErrorMessage } from '../lib/format';
 import {
   BarChart3,
@@ -17,7 +17,16 @@ import {
   Calendar,
   Scissors,
   FileText,
+  ListChecks,
 } from 'lucide-react';
+
+const OPCIONES_SECCION: { id: keyof SeccionesInforme; label: string }[] = [
+  { id: 'resumen', label: 'Resumen del mes' },
+  { id: 'escrito', label: 'Informe escrito' },
+  { id: 'finanzas', label: 'Finanzas por categoría' },
+  { id: 'movimientos', label: 'Movimientos del mes' },
+  { id: 'podas', label: 'Podas por tipo' },
+];
 
 interface InformesViewProps {
   corredorId: string;
@@ -32,6 +41,10 @@ export default function InformesView({ corredorId }: InformesViewProps) {
   const [podas, setPodas] = useState<Poda[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [seleccion, setSeleccion] = useState<SeccionesInforme>({ ...TODAS_SECCIONES });
+
+  const toggleSeccion = (k: keyof SeccionesInforme) =>
+    setSeleccion((s) => ({ ...s, [k]: !s[k] }));
 
   const rango = useMemo(() => rangoDeMes(mes), [mes]);
 
@@ -144,7 +157,7 @@ export default function InformesView({ corredorId }: InformesViewProps) {
     descargarTexto(`podas_${mes}.csv`, podasCSV(podas), 'text/csv;charset=utf-8');
   };
 
-  const exportarPDF = () => generarPDFInforme(datosInforme);
+  const exportarPDF = () => generarPDFInforme(datosInforme, seleccion);
 
   return (
     <div className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
@@ -180,6 +193,44 @@ export default function InformesView({ corredorId }: InformesViewProps) {
         </div>
       </div>
 
+      <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 mb-8 no-print">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <h3 className="font-semibold text-[var(--text)] flex items-center gap-2">
+            <ListChecks className="w-4 h-4 text-[var(--text2)]" />
+            Qué incluir en el informe
+          </h3>
+          <div className="flex gap-3 text-sm">
+            <button
+              onClick={() => setSeleccion({ ...TODAS_SECCIONES })}
+              className="text-[var(--primary)] font-medium hover:underline"
+            >
+              Marcar todas
+            </button>
+            <button
+              onClick={() =>
+                setSeleccion({ resumen: false, escrito: false, finanzas: false, movimientos: false, podas: false })
+              }
+              className="text-[var(--text2)] font-medium hover:underline"
+            >
+              Quitar todas
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2.5">
+          {OPCIONES_SECCION.map((o) => (
+            <label key={o.id} className="flex items-center gap-2 text-sm text-[var(--text)] cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={seleccion[o.id]}
+                onChange={() => toggleSeccion(o.id)}
+                className="w-4 h-4 accent-[var(--primary)]"
+              />
+              {o.label}
+            </label>
+          ))}
+        </div>
+      </div>
+
       {error && (
         <div className="bg-[var(--danger-soft)] text-[var(--danger-deep)] p-4 rounded-xl flex items-start gap-4 mb-8 no-print">
           <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />
@@ -201,34 +252,40 @@ export default function InformesView({ corredorId }: InformesViewProps) {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
-            {kpi.map((k) => (
-              <div key={k.label} className="bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
-                <div className={`p-2 rounded-lg w-fit mb-4 ${k.fondo}`}>
-                  <k.Icon className={`w-5 h-5 ${k.iconColor}`} />
+          {seleccion.resumen && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+              {kpi.map((k) => (
+                <div key={k.label} className="bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
+                  <div className={`p-2 rounded-lg w-fit mb-4 ${k.fondo}`}>
+                    <k.Icon className={`w-5 h-5 ${k.iconColor}`} />
+                  </div>
+                  <h3 className="text-[var(--text2)] text-xs font-semibold uppercase tracking-wider mb-1">{k.label}</h3>
+                  <div className={`text-2xl font-bold ${k.clase}`}>{k.valor}</div>
                 </div>
-                <h3 className="text-[var(--text2)] text-xs font-semibold uppercase tracking-wider mb-1">{k.label}</h3>
-                <div className={`text-2xl font-bold ${k.clase}`}>{k.valor}</div>
-              </div>
-            ))}
-          </div>
-
-          <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-8">
-            <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[var(--text2)]" />
-              Informe escrito
-            </h3>
-            <div className="space-y-4">
-              {escrito.map((p, i) => (
-                <p key={i} className={`text-sm leading-relaxed text-[var(--text)] ${i === escrito.length - 1 ? 'font-medium' : ''}`}>
-                  {p}
-                </p>
               ))}
             </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6">
+          {seleccion.escrito && (
+            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-8">
+              <h3 className="text-lg font-semibold text-[var(--text)] mb-4 flex items-center gap-2">
+                <FileText className="w-5 h-5 text-[var(--text2)]" />
+                Informe escrito
+              </h3>
+              <div className="space-y-4">
+                {escrito.map((p, i) => (
+                  <p key={i} className={`text-sm leading-relaxed text-[var(--text)] ${i === escrito.length - 1 ? 'font-medium' : ''}`}>
+                    {p}
+                  </p>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(seleccion.finanzas || seleccion.podas) && (
+            <div className={`grid gap-6 mb-8 ${seleccion.finanzas && seleccion.podas ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+              {seleccion.finanzas && (
+                <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="text-lg font-semibold text-[var(--text)]">Finanzas por Categoría</h3>
                 <button
@@ -263,7 +320,9 @@ export default function InformesView({ corredorId }: InformesViewProps) {
                 </div>
               )}
             </div>
+            )}
 
+            {seleccion.podas && (
             <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6">
               <div className="flex justify-between items-center mb-5">
                 <h3 className="text-lg font-semibold text-[var(--text)]">Podas por Tipo</h3>
@@ -301,8 +360,11 @@ export default function InformesView({ corredorId }: InformesViewProps) {
                 </div>
               )}
             </div>
+            )}
           </div>
+          )}
 
+          {seleccion.movimientos && (
           <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden no-print">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center">
               <h3 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
@@ -345,6 +407,13 @@ export default function InformesView({ corredorId }: InformesViewProps) {
               </table>
             </div>
           </div>
+          )}
+
+          {Object.values(seleccion).every((v) => !v) && (
+            <div className="bg-[var(--surface)] rounded-xl border border-dashed border-[var(--border)] p-10 text-center text-[var(--text2)]">
+              <p className="text-sm">No seleccionaste ninguna sección para incluir en el informe.</p>
+            </div>
+          )}
         </div>
       )}
     </div>
