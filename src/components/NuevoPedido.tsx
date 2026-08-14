@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { crearPedido } from '../lib/pedidos';
 import { dinero } from '../lib/format';
 import type { Database } from '../types';
-import { PlusCircle, Trash2, Loader2, AlertCircle, CheckCircle2, ChevronLeft, User } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, AlertCircle, CheckCircle2, ChevronLeft, User, UserPlus } from 'lucide-react';
 
 type Producto = Database['public']['Tables']['productos']['Row'];
 type Cliente = Database['public']['Tables']['clientes']['Row'];
@@ -32,6 +32,15 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [mostrarNuevoCliente, setMostrarNuevoCliente] = useState(false);
+  const [nuevoCliente, setNuevoCliente] = useState({
+    nombre: '',
+    telefono: '',
+    direccion: '',
+    tipo_cliente: 'general',
+  });
+  const [guardandoCliente, setGuardandoCliente] = useState(false);
+  const [errorCliente, setErrorCliente] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -86,6 +95,40 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
 
   const quitarLinea = (key: string) => {
     setLineas((prev) => (prev.length === 1 ? prev : prev.filter((l) => l.key !== key)));
+  };
+
+  const guardarNuevoCliente = async () => {
+    const nombre = nuevoCliente.nombre.trim();
+    if (!nombre) {
+      setErrorCliente('Ingresá el nombre del cliente.');
+      return;
+    }
+    setGuardandoCliente(true);
+    setErrorCliente(null);
+    try {
+      const { data, error: e } = await supabase
+        .from('clientes')
+        .insert({
+          corredor_id: corredorId,
+          nombre,
+          telefono: nuevoCliente.telefono.trim() || null,
+          direccion: nuevoCliente.direccion.trim() || null,
+          tipo_cliente: nuevoCliente.tipo_cliente,
+        })
+        .select('*')
+        .single();
+      if (e) throw e;
+      const nuevo = data as Cliente;
+      setClientes((prev) => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setClienteId(nuevo.id);
+      setNuevoCliente({ nombre: '', telefono: '', direccion: '', tipo_cliente: 'general' });
+      setMostrarNuevoCliente(false);
+    } catch (err: any) {
+      console.error(err);
+      setErrorCliente(err.message || 'No se pudo agregar el cliente.');
+    } finally {
+      setGuardandoCliente(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -177,6 +220,109 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
                 </option>
               ))}
             </select>
+
+            {!mostrarNuevoCliente && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMostrarNuevoCliente(true);
+                  setErrorCliente(null);
+                }}
+                className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--primary)] hover:underline"
+              >
+                <UserPlus className="w-4 h-4" />
+                Agregar cliente nuevo
+              </button>
+            )}
+
+            {mostrarNuevoCliente && (
+              <div className="mt-4 p-4 rounded-lg border border-[var(--border)] bg-[var(--field)] space-y-3">
+                <p className="text-sm font-medium text-[var(--text)]">Nuevo cliente</p>
+                {errorCliente && (
+                  <div className="bg-[var(--danger-soft)] text-[var(--danger-deep)] p-3 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm">{errorCliente}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">
+                      Nombre *
+                    </label>
+                    <input
+                      type="text"
+                      value={nuevoCliente.nombre}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })}
+                      placeholder="Nombre y apellido"
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Teléfono</label>
+                    <input
+                      type="tel"
+                      value={nuevoCliente.telefono}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })}
+                      placeholder="+54 221..."
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Dirección</label>
+                    <input
+                      type="text"
+                      value={nuevoCliente.direccion}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })}
+                      placeholder="Calle y número, localidad"
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Tipo</label>
+                    <select
+                      value={nuevoCliente.tipo_cliente}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, tipo_cliente: e.target.value })}
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    >
+                      <option value="general">General</option>
+                      <option value="mayorista">Mayorista</option>
+                      <option value="constructor">Constructor</option>
+                      <option value="otro">Otro</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={guardarNuevoCliente}
+                    disabled={guardandoCliente}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:bg-[var(--primary-deep)] transition-colors disabled:opacity-60"
+                  >
+                    {guardandoCliente ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-4 h-4" />
+                        Guardar cliente
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarNuevoCliente(false);
+                      setErrorCliente(null);
+                    }}
+                    className="text-sm font-medium text-[var(--text2)] hover:text-[var(--text)] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
           </section>
 
           <section className="bg-[var(--surface)] p-8 rounded-xl border border-[var(--border)] shadow-sm">
