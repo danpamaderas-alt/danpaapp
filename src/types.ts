@@ -6,23 +6,6 @@ export interface AgendaTarea {
   hecho: boolean;
 }
 
-export type Notificacion = Database['public']['Tables']['notificaciones']['Row'];
-
-export interface NuevaNotificacion {
-  corredor_id: string;
-  tipo: TipoNotificacion;
-  nivel: NivelNotificacion;
-  titulo: string;
-  mensaje: string;
-  enlace?: string;
-  dato_referencia?: string;
-  leido: boolean;
-  creado_en?: string;
-}
-
-export type TipoNotificacion = 'stock_bajo' | 'agenda_proxima' | 'pago_pendiente' | 'mantenimiento';
-export type NivelNotificacion = 'info' | 'warning' | 'error' | 'success';
-
 export interface Database {
   public: {
     Tables: {

@@ -2,13 +2,13 @@ import { supabase } from './supabase';
 import type { Database } from '../types';
 import { crearNotificacion } from './notificaciones';
 
-export interface NuevoItemPedido {
+interface NuevoItemPedido {
   producto_id: string;
   cantidad: number;
   precio_unitario: number;
 }
 
-export interface ResultadoCrearPedido {
+interface ResultadoCrearPedido {
   success: boolean;
   pedidoId?: string;
   error?: string;

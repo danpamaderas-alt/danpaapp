@@ -4,7 +4,7 @@ import type { Database } from '../types';
 
 export type Movimiento = Database['public']['Tables']['movimientos']['Row'];
 
-export type FiltrosMovimientos = {
+type FiltrosMovimientos = {
   corredorId: string;
   desde?: string;
   hasta?: string;
@@ -104,7 +104,7 @@ export async function eliminarMovimiento(id: string): Promise<void> {
   if (error) throw new Error(getErrorMessage(error));
 }
 
-export type OpcionesFinanzas = { pagadores: string[]; cuentas: string[] };
+type OpcionesFinanzas = { pagadores: string[]; cuentas: string[] };
 
 export async function fetchOpciones(corredorId: string): Promise<OpcionesFinanzas> {
   const { data, error } = await supabase
@@ -122,7 +122,7 @@ export async function fetchOpciones(corredorId: string): Promise<OpcionesFinanza
   return { pagadores, cuentas };
 }
 
-export type TipoOpcion = 'pagador' | 'cuenta';
+type TipoOpcion = 'pagador' | 'cuenta';
 
 export async function agregarOpcion(
   corredorId: string,

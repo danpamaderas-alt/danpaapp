@@ -7,7 +7,7 @@ export type Notificacion = Database['public']['Tables']['notificaciones']['Row']
 export type TipoNotificacion = 'stock_bajo' | 'agenda_proxima' | 'pago_pendiente' | 'mantenimiento';
 export type NivelNotificacion = 'info' | 'warning' | 'error' | 'success';
 
-export interface NuevaNotificacion {
+interface NuevaNotificacion {
   corredor_id: string;
   tipo: TipoNotificacion;
   nivel: NivelNotificacion;
@@ -132,26 +132,6 @@ export async function generarRecordatoriosAgenda(corredorId: string): Promise<vo
       leido: false,
     });
   }
-}
-
-export async function eliminarNotificacion(id: string, corredorId: string): Promise<void> {
-  const { error } = await supabase
-    .from('notificaciones')
-    .delete()
-    .eq('id', id)
-    .eq('corredor_id', corredorId);
-
-  if (error) throw new Error(getErrorMessage(error));
-}
-
-export async function limpiarNotificacionesLeidas(corredorId: string): Promise<void> {
-  const { error } = await supabase
-    .from('notificaciones')
-    .delete()
-    .eq('corredor_id', corredorId)
-    .eq('leido', true);
-
-  if (error) throw new Error(getErrorMessage(error));
 }
 
 export const iconoNotificacion = (tipo: TipoNotificacion): string => {

@@ -162,7 +162,7 @@ export async function toggleTarea(id: string, indice: number, hecho: boolean): P
   if (e2) throw new Error(getErrorMessage(e2));
 }
 
-export type Ocurrencia = { fecha: Date; esBase: boolean };
+type Ocurrencia = { fecha: Date; esBase: boolean };
 
 export function ocurrenciasEnMes(base: Date, recurrencia: string | null | undefined, anio: number, mes: number): Ocurrencia[] {
   const res: Ocurrencia[] = [];
