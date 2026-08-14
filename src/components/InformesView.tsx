@@ -35,16 +35,59 @@ interface InformesViewProps {
 const etiquetaCategoria = (c: string) =>
   c.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
 
+const CLAVE_MES = 'danpa_informes_mes';
+const CLAVE_SECCIONES = 'danpa_informes_seleccion';
+
+const cargarMes = (): string => {
+  try {
+    return localStorage.getItem(CLAVE_MES) ?? hoyISO().slice(0, 7);
+  } catch {
+    return hoyISO().slice(0, 7);
+  }
+};
+
+const cargarSeleccion = (): SeccionesInforme => {
+  try {
+    const raw = localStorage.getItem(CLAVE_SECCIONES);
+    if (!raw) return { ...TODAS_SECCIONES };
+    const parsed = JSON.parse(raw) as Partial<SeccionesInforme>;
+    const base = { ...TODAS_SECCIONES };
+    (Object.keys(base) as (keyof SeccionesInforme)[]).forEach((k) => {
+      if (typeof parsed[k] === 'boolean') base[k] = parsed[k] as boolean;
+    });
+    return base;
+  } catch {
+    return { ...TODAS_SECCIONES };
+  }
+};
+
 export default function InformesView({ corredorId }: InformesViewProps) {
-  const [mes, setMes] = useState(hoyISO().slice(0, 7));
+  const [mes, setMes] = useState(cargarMes);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [podas, setPodas] = useState<Poda[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [seleccion, setSeleccion] = useState<SeccionesInforme>({ ...TODAS_SECCIONES });
+  const [seleccion, setSeleccion] = useState<SeccionesInforme>(cargarSeleccion);
 
-  const toggleSeccion = (k: keyof SeccionesInforme) =>
-    setSeleccion((s) => ({ ...s, [k]: !s[k] }));
+  const guardarSeleccion = (next: SeccionesInforme) => {
+    setSeleccion(next);
+    try {
+      localStorage.setItem(CLAVE_SECCIONES, JSON.stringify(next));
+    } catch {
+      /* sin almacenamiento */
+    }
+  };
+
+  const cambiarMes = (m: string) => {
+    setMes(m);
+    try {
+      localStorage.setItem(CLAVE_MES, m);
+    } catch {
+      /* sin almacenamiento */
+    }
+  };
+
+  const toggleSeccion = (k: keyof SeccionesInforme) => guardarSeleccion({ ...seleccion, [k]: !seleccion[k] });
 
   const rango = useMemo(() => rangoDeMes(mes), [mes]);
 
@@ -172,7 +215,7 @@ export default function InformesView({ corredorId }: InformesViewProps) {
             <input
               type="month"
               value={mes}
-              onChange={(e) => setMes(e.target.value)}
+              onChange={(e) => cambiarMes(e.target.value)}
               className="h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)] text-[var(--text)]"
             />
           </div>
@@ -201,14 +244,14 @@ export default function InformesView({ corredorId }: InformesViewProps) {
           </h3>
           <div className="flex gap-3 text-sm">
             <button
-              onClick={() => setSeleccion({ ...TODAS_SECCIONES })}
+              onClick={() => guardarSeleccion({ ...TODAS_SECCIONES })}
               className="text-[var(--primary)] font-medium hover:underline"
             >
               Marcar todas
             </button>
             <button
               onClick={() =>
-                setSeleccion({ resumen: false, escrito: false, finanzas: false, movimientos: false, podas: false })
+                guardarSeleccion({ resumen: false, escrito: false, finanzas: false, movimientos: false, podas: false })
               }
               className="text-[var(--text2)] font-medium hover:underline"
             >
