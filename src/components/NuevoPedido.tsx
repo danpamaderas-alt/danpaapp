@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { crearPedido } from '../lib/pedidos';
 import { dinero } from '../lib/format';
 import type { Database } from '../types';
-import { PlusCircle, Trash2, Loader2, AlertCircle, CheckCircle2, ChevronLeft, User, UserPlus } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, AlertCircle, CheckCircle2, ChevronLeft, User, UserPlus, PackagePlus } from 'lucide-react';
 
 type Producto = Database['public']['Tables']['productos']['Row'];
 type Cliente = Database['public']['Tables']['clientes']['Row'];
@@ -41,6 +41,15 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
   });
   const [guardandoCliente, setGuardandoCliente] = useState(false);
   const [errorCliente, setErrorCliente] = useState<string | null>(null);
+  const [mostrarNuevoProducto, setMostrarNuevoProducto] = useState(false);
+  const [nuevoProducto, setNuevoProducto] = useState({
+    nombre: '',
+    precio: '',
+    stock: '',
+    categoria: '',
+  });
+  const [guardandoProducto, setGuardandoProducto] = useState(false);
+  const [errorProducto, setErrorProducto] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -95,6 +104,57 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
 
   const quitarLinea = (key: string) => {
     setLineas((prev) => (prev.length === 1 ? prev : prev.filter((l) => l.key !== key)));
+  };
+
+  const guardarNuevoProducto = async () => {
+    const nombre = nuevoProducto.nombre.trim();
+    const precio = Number(nuevoProducto.precio);
+    if (!nombre) {
+      setErrorProducto('Ingresá el nombre del producto.');
+      return;
+    }
+    if (!Number.isFinite(precio) || precio < 0) {
+      setErrorProducto('El precio de venta debe ser un número mayor o igual a 0.');
+      return;
+    }
+    setGuardandoProducto(true);
+    setErrorProducto(null);
+    try {
+      const { data, error: e } = await supabase
+        .from('productos')
+        .insert({
+          nombre,
+          precio,
+          stock: Math.max(0, Number(nuevoProducto.stock) || 0),
+          stock_minimo: 0,
+          categoria: nuevoProducto.categoria.trim() || 'general',
+          activo: true,
+          costo: 0,
+          costo_adquisicion: 0,
+          costo_transporte: 0,
+          costo_empaque: 0,
+          costo_almacenaje: 0,
+          costo_almacenamiento: 0,
+          costo_comision: 0,
+          costo_otros: 0,
+        })
+        .select('*')
+        .single();
+      if (e) throw e;
+      const nuevo = data as Producto;
+      setProductos((prev) => [...prev, nuevo].sort((a, b) => a.nombre.localeCompare(b.nombre)));
+      setLineas((prev) => [
+        ...prev,
+        { key: crypto.randomUUID(), producto_id: nuevo.id, cantidad: 1, precio_unitario: nuevo.precio },
+      ]);
+      setNuevoProducto({ nombre: '', precio: '', stock: '', categoria: '' });
+      setMostrarNuevoProducto(false);
+    } catch (err: any) {
+      console.error(err);
+      setErrorProducto(err.message || 'No se pudo agregar el producto.');
+    } finally {
+      setGuardandoProducto(false);
+    }
   };
 
   const guardarNuevoCliente = async () => {
@@ -331,15 +391,120 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
                 <PlusCircle className="w-5 h-5" />
                 <h3 className="text-lg font-semibold">Productos del Pedido</h3>
               </div>
-              <button
-                type="button"
-                onClick={agregarLinea}
-                className="flex items-center gap-2 text-[var(--primary)] text-sm font-medium hover:underline"
-              >
-                <PlusCircle className="w-4 h-4" />
-                Agregar producto
-              </button>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarNuevoProducto(true);
+                    setErrorProducto(null);
+                  }}
+                  className="flex items-center gap-2 text-[var(--primary)] text-sm font-medium hover:underline"
+                >
+                  <PackagePlus className="w-4 h-4" />
+                  Agregar producto nuevo
+                </button>
+                <button
+                  type="button"
+                  onClick={agregarLinea}
+                  className="flex items-center gap-2 text-[var(--primary)] text-sm font-medium hover:underline"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  Agregar producto
+                </button>
+              </div>
             </div>
+
+            {mostrarNuevoProducto && (
+              <div className="mb-4 p-4 rounded-lg border border-[var(--border)] bg-[var(--field)] space-y-3">
+                <p className="text-sm font-medium text-[var(--text)]">Nuevo producto</p>
+                {errorProducto && (
+                  <div className="bg-[var(--danger-soft)] text-[var(--danger-deep)] p-3 rounded-lg flex items-start gap-3">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm">{errorProducto}</p>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">
+                      Nombre *
+                    </label>
+                    <input
+                      type="text"
+                      value={nuevoProducto.nombre}
+                      onChange={(e) => setNuevoProducto({ ...nuevoProducto, nombre: e.target.value })}
+                      placeholder="Ej: Tablón de pino 2m"
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">
+                      Precio venta *
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={nuevoProducto.precio}
+                      onChange={(e) => setNuevoProducto({ ...nuevoProducto, precio: e.target.value })}
+                      placeholder="0"
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">
+                      Stock inicial
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={nuevoProducto.stock}
+                      onChange={(e) => setNuevoProducto({ ...nuevoProducto, stock: e.target.value })}
+                      placeholder="0"
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Categoría</label>
+                    <input
+                      type="text"
+                      value={nuevoProducto.categoria}
+                      onChange={(e) => setNuevoProducto({ ...nuevoProducto, categoria: e.target.value })}
+                      placeholder="general"
+                      className="w-full h-11 px-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--surface)]"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={guardarNuevoProducto}
+                    disabled={guardandoProducto}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[var(--primary)] text-white hover:bg-[var(--primary-deep)] transition-colors disabled:opacity-60"
+                  >
+                    {guardandoProducto ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Guardando...
+                      </>
+                    ) : (
+                      <>
+                        <PackagePlus className="w-4 h-4" />
+                        Guardar producto
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMostrarNuevoProducto(false);
+                      setErrorProducto(null);
+                    }}
+                    className="text-sm font-medium text-[var(--text2)] hover:text-[var(--text)] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               {lineas.map((linea, idx) => {
