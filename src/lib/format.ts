@@ -9,6 +9,12 @@ export const parseDateOnly = (s: string): Date => {
   return new Date(y, m - 1, d);
 };
 
+/** Devuelve un Date como "YYYY-MM-DD" en hora local. */
+export const claveFecha = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+
 export const formatDate = (d: string) => {
   const fecha = esSoloFecha(d) ? parseDateOnly(d) : new Date(d);
   if (Number.isNaN(fecha.getTime())) return '';

@@ -12,8 +12,13 @@ import {
   type AgendaItem,
 } from '../lib/agenda';
 import { getErrorMessage } from '../lib/format';
-import { Loader2, AlertCircle, Plus, Trash2, Search } from 'lucide-react';
+import { Loader2, AlertCircle, Plus, Trash2, Search, MousePointerClick } from 'lucide-react';
 import CalendarioMensual from './CalendarioMensual';
+import CalendarioSemanal from './CalendarioSemanal';
+import CalendarioAgenda from './CalendarioAgenda';
+import CalendarioAnio from './CalendarioAnio';
+import CalendarioToolbar, { type VistaCalendario } from './CalendarioToolbar';
+import MiniCalendario from './MiniCalendario';
 import AgendaModal, { emptyAgendaForm, agendaFormDesdeItem, type AgendaModalState } from './AgendaModal';
 
 export default function CalendarioView({ corredorId }: { corredorId: string }) {
@@ -27,6 +32,8 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
   const [fTipo, setFTipo] = useState('');
   const [fEstado, setFEstado] = useState('');
   const [fPrioridad, setFPrioridad] = useState('');
+  const [vista, setVista] = useState<VistaCalendario>('mes');
+  const [periodo, setPeriodo] = useState(() => new Date());
 
   const cargar = useCallback(async () => {
     try {
@@ -55,7 +62,7 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
 
   const abrirNuevo = () => setModal(emptyAgendaForm('evento'));
 
-  const abrirEnDia = (fecha: string) => setModal(emptyAgendaForm('evento', fecha));
+  const abrirEnDia = (fecha: string, hora?: string) => setModal(emptyAgendaForm('evento', fecha, hora));
 
   const abrirEdicion = (i: AgendaItem) => setModal(agendaFormDesdeItem(i));
 
@@ -89,7 +96,7 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
       <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Calendario</h2>
-          <p className="text-[var(--text2)] mt-1">Todas tus contrataciones, pliegos y eventos en un solo lugar.</p>
+          <p className="text-[var(--text2)] mt-1">Vistas de día, semana, mes, año y agenda, como en Google Calendar.</p>
         </div>
         <button
           onClick={abrirNuevo}
@@ -150,20 +157,53 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
           <p>Cargando calendario...</p>
         </div>
       ) : (
-        <>
-          {filtrados.length === 0 ? (
-            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] py-16 text-center text-[var(--text2)]">
-              No hay actividades que coincidan con los filtros.
+        <div className="flex flex-col xl:flex-row gap-6 items-start">
+          <aside className="w-full xl:w-64 flex-shrink-0 space-y-4">
+            <MiniCalendario fecha={periodo} items={filtrados} onSelect={(d) => setPeriodo(d)} />
+            <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-4 hidden xl:block">
+              <p className="text-xs text-[var(--text2)] flex items-start gap-2">
+                <MousePointerClick className="w-4 h-4 flex-shrink-0 mt-0.5 text-[var(--primary)]" />
+                En las vistas de día y semana, hacé clic sobre un horario para crear una actividad a esa hora.
+              </p>
             </div>
-          ) : (
-            <CalendarioMensual
-              items={filtrados}
-              onEditar={abrirEdicion}
-              onAgregar={abrirEnDia}
-              onToggleTarea={marcarTarea}
+          </aside>
+          <div className="flex-1 min-w-0 w-full">
+            <CalendarioToolbar
+              fecha={periodo}
+              vista={vista}
+              onCambiar={setPeriodo}
+              onCambiarVista={setVista}
             />
-          )}
-        </>
+            {vista === 'mes' && (
+              <CalendarioMensual
+                items={filtrados}
+                fecha={periodo}
+                onEditar={abrirEdicion}
+                onAgregar={abrirEnDia}
+                onToggleTarea={marcarTarea}
+              />
+            )}
+            {vista === 'semana' && (
+              <CalendarioSemanal modo="semana" items={filtrados} fecha={periodo} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
+            )}
+            {vista === 'dia' && (
+              <CalendarioSemanal modo="dia" items={filtrados} fecha={periodo} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
+            )}
+            {vista === 'anio' && (
+              <CalendarioAnio
+                items={filtrados}
+                fecha={periodo}
+                onIrMes={(d) => {
+                  setPeriodo(d);
+                  setVista('mes');
+                }}
+              />
+            )}
+            {vista === 'agenda' && (
+              <CalendarioAgenda items={filtrados} fecha={periodo} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
+            )}
+          </div>
+        </div>
       )}
 
       {modal && (

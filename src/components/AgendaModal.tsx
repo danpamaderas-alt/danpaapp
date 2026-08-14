@@ -43,13 +43,13 @@ export interface AgendaModalState {
   notas: string;
 }
 
-export const emptyAgendaForm = (tipo: string, fecha?: string): AgendaModalState => ({
+export const emptyAgendaForm = (tipo: string, fecha?: string, hora?: string): AgendaModalState => ({
   tipo,
   titulo: '',
   organismo: '',
   monto: '',
   fecha: fecha || '',
-  hora: '',
+  hora: hora || '',
   hora_fin: '',
   lugar: '',
   prioridad: 'media',

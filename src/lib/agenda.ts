@@ -201,3 +201,49 @@ export function ocurrenciasEnMes(base: Date, recurrencia: string | null | undefi
 
   return res;
 }
+
+/** Expande las ocurrencias de un evento recurrente dentro de un rango de fechas (inclusive). */
+export function ocurrenciasEntre(
+  base: Date,
+  recurrencia: string | null | undefined,
+  desde: Date,
+  hasta: Date
+): Ocurrencia[] {
+  const res: Ocurrencia[] = [];
+  const hastaEod = new Date(hasta.getFullYear(), hasta.getMonth(), hasta.getDate(), 23, 59, 59);
+  const push = (f: Date, esBase: boolean) => {
+    if (f >= desde && f <= hastaEod) res.push({ fecha: f, esBase });
+  };
+
+  if (!recurrencia || recurrencia === 'ninguna') {
+    push(new Date(base.getFullYear(), base.getMonth(), base.getDate()), true);
+    return res;
+  }
+
+  if (recurrencia === 'mensual') {
+    for (let k = 0; k <= 36; k++) {
+      const f = new Date(base.getFullYear(), base.getMonth() + k, base.getDate());
+      if (f > hastaEod) break;
+      push(f, k === 0);
+    }
+    for (let k = 1; k <= 36; k++) {
+      const f = new Date(base.getFullYear(), base.getMonth() - k, base.getDate());
+      if (f < desde) break;
+      push(f, false);
+    }
+  } else {
+    const paso = recurrencia === 'semanal' ? 7 : 14;
+    for (let k = 0; k <= 52; k++) {
+      const f = new Date(base.getFullYear(), base.getMonth(), base.getDate() + k * paso);
+      if (f > hastaEod) break;
+      push(f, k === 0);
+    }
+    for (let k = 1; k <= 52; k++) {
+      const f = new Date(base.getFullYear(), base.getMonth(), base.getDate() - k * paso);
+      if (f < desde) break;
+      push(f, false);
+    }
+  }
+
+  return res;
+}

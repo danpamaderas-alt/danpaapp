@@ -25,6 +25,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import CalendarioMensual from './CalendarioMensual';
+import CalendarioToolbar from './CalendarioToolbar';
 import AgendaModal, { emptyAgendaForm, agendaFormDesdeItem, type AgendaModalState } from './AgendaModal';
 
 interface AgendaViewProps {
@@ -56,6 +57,7 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
   const [guardando, setGuardando] = useState(false);
   const [confirmarEliminar, setConfirmarEliminar] = useState<AgendaItem | null>(null);
   const [vista, setVista] = useState<'lista' | 'calendario'>('lista');
+  const [fechaCal, setFechaCal] = useState(() => new Date());
 
   const cargar = useCallback(async () => {
     try {
@@ -129,7 +131,7 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
 
   const abrirNuevo = () => setModal(emptyAgendaForm(tipoTab));
 
-  const abrirEnDia = (fecha: string) => setModal(emptyAgendaForm(tipoTab, fecha));
+  const abrirEnDia = (fecha: string, hora?: string) => setModal(emptyAgendaForm(tipoTab, fecha, hora));
 
   const abrirEdicion = (i: AgendaItem) => setModal(agendaFormDesdeItem(i));
 
@@ -397,7 +399,10 @@ export default function AgendaView({ corredorId }: AgendaViewProps) {
               </div>
             </div>
           ) : (
-            <CalendarioMensual items={items} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
+            <>
+              <CalendarioToolbar fecha={fechaCal} vista="mes" onCambiar={setFechaCal} />
+              <CalendarioMensual items={items} fecha={fechaCal} onEditar={abrirEdicion} onAgregar={abrirEnDia} />
+            </>
           )}
         </>
       )}

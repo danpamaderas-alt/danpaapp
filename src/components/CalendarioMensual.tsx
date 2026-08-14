@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Pencil, MapPin, Flag, CheckSquare } from 'lucide-react';
+import { Plus, Pencil, MapPin, Flag, CheckSquare } from 'lucide-react';
 import { formatDate, parseDateOnly } from '../lib/format';
 import {
   etiquetaEstado,
@@ -42,16 +42,13 @@ const prioridadClase = (p: string | null | undefined) => {
 
 interface CalendarioMensualProps {
   items: AgendaItem[];
+  fecha: Date;
   onEditar: (i: AgendaItem) => void;
-  onAgregar: (fechaISO: string) => void;
+  onAgregar: (fechaISO: string, hora?: string) => void;
   onToggleTarea?: (id: string, indice: number, hecho: boolean) => void;
 }
 
-export default function CalendarioMensual({ items, onEditar, onAgregar, onToggleTarea }: CalendarioMensualProps) {
-  const [mesActual, setMesActual] = useState(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1);
-  });
+export default function CalendarioMensual({ items, fecha, onEditar, onAgregar, onToggleTarea }: CalendarioMensualProps) {
   const [diaSeleccionado, setDiaSeleccionado] = useState<string | null>(null);
 
   const porDia = useMemo(() => {
@@ -61,8 +58,8 @@ export default function CalendarioMensual({ items, onEditar, onAgregar, onToggle
       const ocurrencias = ocurrenciasEnMes(
         parseDateOnly(i.fecha),
         i.recurrencia,
-        mesActual.getFullYear(),
-        mesActual.getMonth()
+        fecha.getFullYear(),
+        fecha.getMonth()
       );
       for (const o of ocurrencias) {
         const clave = fechaISO(o.fecha);
@@ -71,11 +68,11 @@ export default function CalendarioMensual({ items, onEditar, onAgregar, onToggle
       }
     }
     return mapa;
-  }, [items, mesActual]);
+  }, [items, fecha]);
 
   const semanas = useMemo(() => {
-    const anio = mesActual.getFullYear();
-    const mes = mesActual.getMonth();
+    const anio = fecha.getFullYear();
+    const mes = fecha.getMonth();
     const offset = (new Date(anio, mes, 1).getDay() + 6) % 7;
     const diasEnMes = new Date(anio, mes + 1, 0).getDate();
     const celdas: { fecha: Date; enMes: boolean }[] = [];
@@ -91,50 +88,12 @@ export default function CalendarioMensual({ items, onEditar, onAgregar, onToggle
       siguiente++;
     }
     return celdas;
-  }, [mesActual]);
+  }, [fecha]);
 
   const itemsDelDia = useMemo(() => (diaSeleccionado ? porDia[diaSeleccionado] || [] : []), [diaSeleccionado, porDia]);
 
-  const cambiarMes = (delta: number) => {
-    setMesActual((m) => new Date(m.getFullYear(), m.getMonth() + delta, 1));
-  };
-
-  const irHoy = () => {
-    const d = new Date();
-    setMesActual(new Date(d.getFullYear(), d.getMonth(), 1));
-    setDiaSeleccionado(fechaISO(d));
-  };
-
   return (
     <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6 mb-8">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-6">
-        <h3 className="text-lg font-semibold text-[var(--text)] capitalize">
-          {mesActual.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })}
-        </h3>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => cambiarMes(-1)}
-            className="p-2 text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--blue-header)] rounded-lg transition-colors"
-            title="Mes anterior"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <button
-            onClick={irHoy}
-            className="px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text)] hover:bg-[var(--blue-header)] transition-colors"
-          >
-            Hoy
-          </button>
-          <button
-            onClick={() => cambiarMes(1)}
-            className="p-2 text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--blue-header)] rounded-lg transition-colors"
-            title="Mes siguiente"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-7 gap-1.5 mb-2">
         {DIAS_SEMANA.map((d) => (
           <div key={d} className="text-center text-xs font-semibold text-[var(--text2)] uppercase tracking-wider py-1">
