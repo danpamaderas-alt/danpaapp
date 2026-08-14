@@ -7,6 +7,7 @@ import {
   Users,
   Wallet,
   CalendarCheck2,
+  Calendar,
   UserCog,
   Briefcase,
   Scissors,
@@ -44,6 +45,7 @@ import ClientesView from './components/ClientesView';
 import FinanzasView from './components/FinanzasView';
 import VisitasView from './components/VisitasView';
 import AgendaView from './components/AgendaView';
+import CalendarioView from './components/CalendarioView';
 import PodasView from './components/PodasView';
 import InformesView from './components/InformesView';
 import BackupView from './components/BackupView';
@@ -53,7 +55,7 @@ import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
 import { GOD_MODE, godUsuario } from './lib/god';
 
-type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'podas' | 'informes' | 'backup' | 'usuarios';
+type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -280,6 +282,7 @@ export default function App() {
                 { id: 'clientes', label: 'Mis Clientes', Icon: Users },
                 { id: 'visitas', label: 'Visitas', Icon: CalendarCheck2 },
                 { id: 'agenda', label: 'Agenda', Icon: Briefcase },
+                { id: 'calendario', label: 'Calendario', Icon: Calendar },
                 { id: 'podas', label: 'Podas de Árboles', Icon: Scissors },
                 { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
                 { id: 'informes', label: 'Informes', Icon: BarChart3 },
@@ -414,6 +417,7 @@ export default function App() {
         {currentView === 'clientes' && <ClientesView corredorId={corredorId} />}
         {currentView === 'visitas' && <VisitasView corredorId={corredorId} />}
         {currentView === 'agenda' && <AgendaView corredorId={corredorId} />}
+        {currentView === 'calendario' && <CalendarioView corredorId={corredorId} />}
         {currentView === 'podas' && <PodasView corredorId={corredorId} />}
         {currentView === 'finanzas' && <FinanzasView corredorId={corredorId} />}
         {currentView === 'informes' && <InformesView corredorId={corredorId} />}
