@@ -4,6 +4,8 @@ import { dinero, formatDate, parseDateOnly } from '../lib/format';
 import type { Database } from '../types';
 import { etiquetaTipo, type AgendaItem } from '../lib/agenda';
 import { generarRecordatoriosAgenda } from '../lib/notificaciones';
+import { calcularSaldo, type Movimiento } from '../lib/finanzas';
+import { BarrasMensuales, DonutIngresosEgresos, DesgloseCategorias } from './GraficoResumen';
 import {
   PackageOpen,
   AlertTriangle,
@@ -18,6 +20,10 @@ import {
   CheckCircle2,
   CalendarDays,
   ArrowRight,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  BadgeCheck,
 } from 'lucide-react';
 
 type Pedido = Database['public']['Tables']['pedidos']['Row'];
@@ -25,7 +31,11 @@ type Cliente = Database['public']['Tables']['clientes']['Row'];
 type Item = Database['public']['Tables']['pedido_items']['Row'];
 type Producto = Database['public']['Tables']['productos']['Row'];
 
-type PedidoConDetalles = Pedido & { clientes: Cliente | null; pedido_items: Item[] };
+type PedidoConDetalles = Pedido & {
+  clientes: Cliente | null;
+  pedido_items: Item[];
+  vendedor: { nombre: string } | null;
+};
 
 interface DashboardProps {
   corredorId: string;
@@ -36,6 +46,7 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
   const [pedidos, setPedidos] = useState<PedidoConDetalles[]>([]);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [agenda, setAgenda] = useState<AgendaItem[]>([]);
+  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<PedidoConDetalles | null>(null);
@@ -48,10 +59,15 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
         setLoading(true);
         setError(null);
 
-        const [{ data: pData, error: pErr }, { data: prodData, error: prodErr }, { data: agendaData, error: agendaErr }] = await Promise.all([
+        const [
+          { data: pData, error: pErr },
+          { data: prodData, error: prodErr },
+          { data: agendaData, error: agendaErr },
+          { data: movData, error: movErr },
+        ] = await Promise.all([
           supabase
             .from('pedidos')
-            .select('*, clientes(*), pedido_items(*)')
+            .select('*, clientes(*), vendedor:usuarios!pedidos_vendedor_id_fkey(nombre), pedido_items(*)')
             .eq('corredor_id', corredorId)
             .order('created_at', { ascending: false })
             .limit(100),
@@ -61,15 +77,23 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
             .select('*')
             .eq('corredor_id', corredorId)
             .order('fecha', { ascending: true, nullsFirst: true }),
+          supabase
+            .from('movimientos')
+            .select('*')
+            .eq('corredor_id', corredorId)
+            .order('fecha', { ascending: false })
+            .limit(500),
         ]);
 
         if (pErr) throw pErr;
         if (prodErr) throw prodErr;
         if (agendaErr) throw agendaErr;
+        if (movErr) throw movErr;
 
         setPedidos((pData as unknown as PedidoConDetalles[]) || []);
         setProductos((prodData as Producto[]) || []);
         setAgenda((agendaData as AgendaItem[]) || []);
+        setMovimientos((movData as Movimiento[]) || []);
       } catch (err: any) {
         console.error('Error fetching dashboard:', err);
         setError(err.message || 'Error al cargar los datos.');
@@ -96,6 +120,14 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
   const entregados = pedidos.filter((p) => p.estado === 'Entregado').length;
   const enProceso = pedidos.filter((p) => p.estado !== 'Entregado').length;
   const stockBajo = productos.filter((p) => p.activo && p.stock <= (p.stock_minimo || 0));
+
+  const ingresos = movimientos
+    .filter((m) => m.tipo === 'ingreso')
+    .reduce((acc, m) => acc + (m.monto || 0), 0);
+  const egresos = movimientos
+    .filter((m) => m.tipo === 'egreso')
+    .reduce((acc, m) => acc + (m.monto || 0), 0);
+  const saldo = calcularSaldo(movimientos);
 
   const inicioDia = (d: Date) => {
     const x = new Date(d);
@@ -131,7 +163,7 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
       <main className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">
         <div className="mb-8">
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Resumen de Operativa</h2>
-          <p className="text-[var(--text2)] mt-1">Estado de ventas, cobranzas y stock de tu operación.</p>
+          <p className="text-[var(--text2)] mt-1">Estado de ventas, cobranzas, finanzas y stock de tu operación.</p>
         </div>
 
         {error ? (
@@ -191,6 +223,47 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
                 </div>
               </div>
             )}
+
+            <h3 className="text-lg font-semibold text-[var(--text)] tracking-tight mb-4 flex items-center gap-2">
+              <Wallet className="w-5 h-5 text-[var(--primary)]" />
+              Finanzas
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+              <div className="bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
+                <div className="p-2 bg-[var(--blue-soft)] rounded-lg w-fit mb-4">
+                  <Wallet className="w-5 h-5 text-[var(--text)]" />
+                </div>
+                <h3 className="text-[var(--text2)] text-xs font-semibold uppercase tracking-wider mb-1">Saldo</h3>
+                <div className={`text-3xl font-bold ${saldo >= 0 ? 'text-[var(--primary)]' : 'text-[var(--danger)]'}`}>
+                  {dinero(saldo)}
+                </div>
+              </div>
+
+              <div className="bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
+                <div className="p-2 bg-[var(--primary-soft)] rounded-lg w-fit mb-4">
+                  <TrendingUp className="w-5 h-5 text-[var(--primary-green)]" />
+                </div>
+                <h3 className="text-[var(--text2)] text-xs font-semibold uppercase tracking-wider mb-1">Ingresos</h3>
+                <div className="text-3xl font-bold text-[var(--primary)]">{dinero(ingresos)}</div>
+              </div>
+
+              <div className="bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
+                <div className="p-2 bg-[var(--danger-soft)] rounded-lg w-fit mb-4">
+                  <TrendingDown className="w-5 h-5 text-[var(--danger)]" />
+                </div>
+                <h3 className="text-[var(--text2)] text-xs font-semibold uppercase tracking-wider mb-1">Egresos / Gastos</h3>
+                <div className="text-3xl font-bold text-[var(--danger)]">{dinero(egresos)}</div>
+              </div>
+
+              <div className="bg-[var(--surface)] p-6 rounded-xl border border-[var(--border)]">
+                <div className="p-2 bg-[var(--gray-soft)] rounded-lg w-fit mb-4">
+                  <Receipt className="w-5 h-5 text-[var(--text)]" />
+                </div>
+                <h3 className="text-[var(--text2)] text-xs font-semibold uppercase tracking-wider mb-1">Movimientos</h3>
+                <div className="text-3xl font-bold text-[var(--text)]">{movimientos.length}</div>
+                <p className="text-[var(--text2)] text-sm mt-2">Registros cargados.</p>
+              </div>
+            </div>
 
             {(eventosAgenda.vencidos.length > 0 || eventosAgenda.proximos.length > 0) && (
               <section className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden mb-8">
@@ -333,6 +406,16 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
                 </table>
               </div>
             </section>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+              <div className="lg:col-span-2">
+                <BarrasMensuales movimientos={movimientos} />
+              </div>
+              <DonutIngresosEgresos movimientos={movimientos} />
+              <div className="lg:col-span-3">
+                <DesgloseCategorias movimientos={movimientos} />
+              </div>
+            </div>
           </>
         )}
       </main>
@@ -349,6 +432,12 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
                     {formatDate(selectedOrder.created_at)}
                   </span>
                   <span className="font-semibold text-[var(--text)]">{selectedOrder.clientes?.nombre ?? 'Sin cliente'}</span>
+                  {selectedOrder.vendedor && (
+                    <span className="flex items-center gap-1.5 text-[var(--primary-deep)]">
+                      <BadgeCheck className="w-4 h-4" />
+                      {selectedOrder.vendedor.nombre}
+                    </span>
+                  )}
                 </div>
               </div>
               <button
@@ -411,7 +500,14 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
               <span className="text-sm text-[var(--text2)]">
                 Pagado: <strong className="text-[var(--text)]">{dinero(selectedOrder.monto_pagado || 0)}</strong>
               </span>
-              <span className="text-lg font-bold text-[var(--text)]">Total: {dinero(selectedOrder.total)}</span>
+              <div className="text-right">
+                {selectedOrder.descuento > 0 && (
+                  <p className="text-xs text-[var(--danger-deep)] font-medium mb-0.5">
+                    Descuento: - {dinero(selectedOrder.descuento)}
+                  </p>
+                )}
+                <span className="text-lg font-bold text-[var(--text)]">Total: {dinero(selectedOrder.total)}</span>
+              </div>
             </div>
           </div>
         </div>

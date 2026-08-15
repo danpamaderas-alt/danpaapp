@@ -22,13 +22,17 @@ export async function crearPedido(
   corredorId: string,
   clienteId: string | null,
   items: NuevoItemPedido[],
-  notas?: string
+  notas?: string,
+  descuento?: number,
+  vendedorId?: string | null
 ): Promise<ResultadoCrearPedido> {
   try {
     if (!corredorId) throw new Error('Falta el corredor seleccionado.');
     if (items.length === 0) throw new Error('Agrega al menos un producto al pedido.');
 
-    const total = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
+    const subtotal = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
+    const montoDescuento = Math.max(0, Math.min(descuento || 0, subtotal));
+    const total = Math.max(0, subtotal - montoDescuento);
 
     // 1. Crear el pedido
     const { data: pedido, error: pedidoError } = await supabase
@@ -36,7 +40,9 @@ export async function crearPedido(
       .insert({
         corredor_id: corredorId,
         cliente_id: clienteId,
+        vendedor_id: vendedorId || null,
         total,
+        descuento: montoDescuento,
         notas: notas || null,
         estado: 'Pendiente',
         estado_pago: 'no_pagado',

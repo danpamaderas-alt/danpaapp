@@ -11,12 +11,17 @@ import {
   CheckCircle2,
   Banknote,
   Truck,
+  BadgeCheck,
 } from 'lucide-react';
 
 type Pedido = Database['public']['Tables']['pedidos']['Row'];
 type Cliente = Database['public']['Tables']['clientes']['Row'];
 type Item = Database['public']['Tables']['pedido_items']['Row'] & { productos: Database['public']['Tables']['productos']['Row'] | null };
-type PedidoConDetalles = Pedido & { clientes: Cliente | null; pedido_items: Item[] };
+type PedidoConDetalles = Pedido & {
+  clientes: Cliente | null;
+  pedido_items: Item[];
+  vendedor: { nombre: string } | null;
+};
 
 interface MisPedidosProps {
   corredorId: string;
@@ -36,7 +41,7 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
       setError(null);
       const { data, error: e } = await supabase
         .from('pedidos')
-        .select('*, clientes(*), pedido_items(*, productos(id, nombre, precio))')
+        .select('*, clientes(*), vendedor:usuarios!pedidos_vendedor_id_fkey(nombre), pedido_items(*, productos(id, nombre, precio))')
         .eq('corredor_id', corredorId)
         .order('created_at', { ascending: false })
         .limit(200);
@@ -193,6 +198,12 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
                     {formatDate(selected.created_at)}
                   </span>
                   <span className="font-semibold text-[var(--text)]">{selected.clientes?.nombre ?? 'Sin cliente'}</span>
+                  {selected.vendedor && (
+                    <span className="flex items-center gap-1.5 text-[var(--primary-deep)]">
+                      <BadgeCheck className="w-4 h-4" />
+                      {selected.vendedor.nombre}
+                    </span>
+                  )}
                 </div>
               </div>
               <button
@@ -279,7 +290,14 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
               <span className="text-sm text-[var(--text2)]">
                 Pagado: <strong className="text-[var(--text)]">{dinero(selected.monto_pagado || 0)}</strong>
               </span>
-              <span className="text-lg font-bold text-[var(--text)]">Total: {dinero(selected.total)}</span>
+              <div className="text-right">
+                {selected.descuento > 0 && (
+                  <p className="text-xs text-[var(--danger-deep)] font-medium mb-0.5">
+                    Descuento: - {dinero(selected.descuento)}
+                  </p>
+                )}
+                <span className="text-lg font-bold text-[var(--text)]">Total: {dinero(selected.total)}</span>
+              </div>
             </div>
           </div>
         </div>

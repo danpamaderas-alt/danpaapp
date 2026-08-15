@@ -3,10 +3,11 @@ import { supabase } from '../lib/supabase';
 import { crearPedido } from '../lib/pedidos';
 import { dinero } from '../lib/format';
 import type { Database } from '../types';
-import { PlusCircle, Trash2, Loader2, AlertCircle, CheckCircle2, ChevronLeft, User, UserPlus, PackagePlus } from 'lucide-react';
+import { PlusCircle, Trash2, Loader2, AlertCircle, CheckCircle2, ChevronLeft, User, UserPlus, PackagePlus, Percent, X, BadgeCheck } from 'lucide-react';
 
 type Producto = Database['public']['Tables']['productos']['Row'];
 type Cliente = Database['public']['Tables']['clientes']['Row'];
+type Usuario = Database['public']['Tables']['usuarios']['Row'];
 
 interface Linea {
   key: string;
@@ -23,8 +24,12 @@ interface NuevoPedidoProps {
 export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps) {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [vendedores, setVendedores] = useState<Usuario[]>([]);
   const [clienteId, setClienteId] = useState('');
+  const [vendedorId, setVendedorId] = useState('');
   const [notas, setNotas] = useState('');
+  const [descuentoTipo, setDescuentoTipo] = useState<'porcentaje' | 'monto'>('porcentaje');
+  const [descuentoValor, setDescuentoValor] = useState('');
   const [lineas, setLineas] = useState<Linea[]>([
     { key: crypto.randomUUID(), producto_id: '', cantidad: 1, precio_unitario: 0 },
   ]);
@@ -56,14 +61,17 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
       try {
         setLoading(true);
         setError(null);
-        const [{ data: prods, error: e1 }, { data: clis, error: e2 }] = await Promise.all([
+        const [{ data: prods, error: e1 }, { data: clis, error: e2 }, { data: vends, error: e3 }] = await Promise.all([
           supabase.from('productos').select('*').eq('activo', true).order('nombre', { ascending: true }),
           supabase.from('clientes').select('*').eq('corredor_id', corredorId).eq('activo', true).order('nombre', { ascending: true }),
+          supabase.rpc('listar_vendedores'),
         ]);
         if (e1) throw e1;
         if (e2) throw e2;
+        if (e3) throw e3;
         setProductos((prods as Producto[]) || []);
         setClientes((clis as Cliente[]) || []);
+        setVendedores((vends as Usuario[]) || []);
       } catch (err: any) {
         console.error(err);
         setError('No se pudieron cargar productos/clientes.');
@@ -79,7 +87,16 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
     [productos]
   );
 
-  const total = lineas.reduce((acc, l) => acc + l.cantidad * l.precio_unitario, 0);
+  const subtotal = lineas.reduce((acc, l) => acc + l.cantidad * l.precio_unitario, 0);
+
+  const descuento = useMemo(() => {
+    const v = Number(descuentoValor);
+    if (!Number.isFinite(v) || v <= 0) return 0;
+    if (descuentoTipo === 'porcentaje') return (Math.min(100, v) / 100) * subtotal;
+    return Math.min(v, subtotal);
+  }, [descuentoTipo, descuentoValor, subtotal]);
+
+  const total = Math.max(0, subtotal - descuento);
 
   const actualizarLinea = (key: string, patch: Partial<Linea>) => {
     setLineas((prev) =>
@@ -211,7 +228,7 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
       return;
     }
 
-    const result = await crearPedido(corredorId, clienteId || null, items, notas || undefined);
+    const result = await crearPedido(corredorId, clienteId || null, items, notas || undefined, descuento, vendedorId || null);
 
     setSubmitting(false);
 
@@ -280,6 +297,25 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
                 </option>
               ))}
             </select>
+
+            <div className="mt-4 space-y-1">
+              <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider flex items-center gap-1.5">
+                <BadgeCheck className="w-3.5 h-3.5" />
+                Vendedor
+              </label>
+              <select
+                value={vendedorId}
+                onChange={(e) => setVendedorId(e.target.value)}
+                className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+              >
+                <option value="">— Sin vendedor asignado —</option>
+                {vendedores.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {!mostrarNuevoCliente && (
               <button
@@ -564,9 +600,72 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
               <p className="text-sm text-[var(--amber-text2)] mt-4">No hay productos activos cargados.</p>
             )}
 
-            <div className="mt-6 pt-6 border-t border-[var(--blue-header)] flex justify-end items-center gap-4">
-              <span className="text-[var(--text2)] text-sm">Total del pedido</span>
-              <span className="text-3xl font-bold text-[var(--text)]">{dinero(total)}</span>
+            <div className="mt-6 pt-6 border-t border-[var(--blue-header)] space-y-3">
+              <div className="flex justify-end items-center gap-4">
+                <span className="text-[var(--text2)] text-sm">Subtotal</span>
+                <span className="text-xl font-bold text-[var(--text)]">{dinero(subtotal)}</span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row justify-end items-end sm:items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-[var(--text2)] text-sm">Descuento</span>
+                  <div className="flex border border-[var(--border)] rounded-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => setDescuentoTipo('porcentaje')}
+                      className={`h-9 px-3 flex items-center justify-center transition-colors ${
+                        descuentoTipo === 'porcentaje'
+                          ? 'bg-[var(--primary)] text-white'
+                          : 'bg-[var(--field)] text-[var(--text2)] hover:text-[var(--text)]'
+                      }`}
+                      title="Descuento por porcentaje"
+                    >
+                      <Percent className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDescuentoTipo('monto')}
+                      className={`h-9 px-3 flex items-center justify-center transition-colors ${
+                        descuentoTipo === 'monto'
+                          ? 'bg-[var(--primary)] text-white'
+                          : 'bg-[var(--field)] text-[var(--text2)] hover:text-[var(--text)]'
+                      }`}
+                      title="Descuento en monto fijo"
+                    >
+                      $
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min={0}
+                      max={descuentoTipo === 'porcentaje' ? 100 : subtotal}
+                      value={descuentoValor}
+                      onChange={(e) => setDescuentoValor(e.target.value)}
+                      placeholder={descuentoTipo === 'porcentaje' ? '0%' : '$0'}
+                      className="w-28 h-9 px-3 pr-8 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)] text-right font-semibold"
+                    />
+                    {descuentoValor !== '' && (
+                      <button
+                        type="button"
+                        onClick={() => setDescuentoValor('')}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--text2)] hover:text-[var(--text)]"
+                        title="Quitar descuento"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <span className="text-sm font-semibold text-[var(--danger-deep)]">
+                  {descuento > 0 ? `- ${dinero(descuento)}` : '—'}
+                </span>
+              </div>
+
+              <div className="flex justify-end items-center gap-4">
+                <span className="text-[var(--text2)] text-sm">Total del pedido</span>
+                <span className="text-3xl font-bold text-[var(--text)]">{dinero(total)}</span>
+              </div>
             </div>
           </section>
 
