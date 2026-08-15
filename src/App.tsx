@@ -13,6 +13,7 @@ import {
   Scissors,
   BarChart3,
   Database,
+  UsersRound,
   Loader2,
   AlertCircle,
   Sun,
@@ -22,6 +23,7 @@ import {
   X,
   Bell,
   CheckCheck,
+  Boxes,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -50,12 +52,14 @@ import PodasView from './components/PodasView';
 import InformesView from './components/InformesView';
 import BackupView from './components/BackupView';
 import UsuariosView from './components/UsuariosView';
+import RrhhView from './components/RrhhView';
+import InventarioView from './components/InventarioView';
 import Login from './components/Login';
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
 import { GOD_MODE, godUsuario } from './lib/god';
 
-type View = 'dashboard' | 'productos' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios';
+type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -240,6 +244,47 @@ export default function App() {
   const corredorId = c.id;
   const esAdmin = c.perfil === 'admin';
 
+  const seccionesMenu = [
+    {
+      titulo: 'Principal',
+      items: [{ id: 'dashboard', label: 'Resumen', Icon: PackageOpen }],
+    },
+    {
+      titulo: 'Pedidos',
+      items: [
+        { id: 'nuevoPedido', label: 'Nuevo Pedido', Icon: PlusCircle },
+        { id: 'pedidos', label: 'Mis Pedidos', Icon: ListOrdered },
+      ],
+    },
+    {
+      titulo: 'Catálogo',
+      items: [
+        { id: 'productos', label: 'Productos', Icon: TreePine },
+        { id: 'inventario', label: 'Inventario', Icon: Boxes },
+      ],
+    },
+    {
+      titulo: 'Clientes',
+      items: [
+        { id: 'clientes', label: 'Mis Clientes', Icon: Users },
+        { id: 'visitas', label: 'Visitas', Icon: CalendarCheck2 },
+        { id: 'agenda', label: 'Agenda', Icon: Briefcase },
+        { id: 'calendario', label: 'Calendario', Icon: Calendar },
+        { id: 'podas', label: 'Podas de Árboles', Icon: Scissors },
+      ],
+    },
+    {
+      titulo: 'Administración',
+      items: [
+        ...(esAdmin ? [{ id: 'usuarios', label: 'Usuarios', Icon: UserCog }] : []),
+        ...(esAdmin ? [{ id: 'rrhh', label: 'Recursos Humanos', Icon: UsersRound }] : []),
+        { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
+        { id: 'informes', label: 'Informes', Icon: BarChart3 },
+        { id: 'backup', label: 'Backup', Icon: Database },
+      ],
+    },
+  ] as { titulo: string; items: { id: View; label: string; Icon: LucideIcon }[] }[];
+
   return (
     <div className="flex min-h-screen bg-[var(--bg)]">
       {sidebarOpen && (
@@ -268,42 +313,34 @@ export default function App() {
           </button>
         </div>
 
-        <nav className="flex-grow mt-2">
-          <ul className="space-y-1">
-            {(
-              [
-                { id: 'dashboard', label: 'Resumen', Icon: PackageOpen },
-                ...(esAdmin
-                  ? [{ id: 'usuarios', label: 'Usuarios', Icon: UserCog }]
-                  : []),
-                { id: 'productos', label: 'Productos & Stock', Icon: TreePine },
-                { id: 'nuevoPedido', label: 'Nuevo Pedido', Icon: PlusCircle },
-                { id: 'pedidos', label: 'Mis Pedidos', Icon: ListOrdered },
-                { id: 'clientes', label: 'Mis Clientes', Icon: Users },
-                { id: 'visitas', label: 'Visitas', Icon: CalendarCheck2 },
-                { id: 'agenda', label: 'Agenda', Icon: Briefcase },
-                { id: 'calendario', label: 'Calendario', Icon: Calendar },
-                { id: 'podas', label: 'Podas de Árboles', Icon: Scissors },
-                { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
-                { id: 'informes', label: 'Informes', Icon: BarChart3 },
-                { id: 'backup', label: 'Backup', Icon: Database },
-              ] as { id: View; label: string; Icon: LucideIcon }[]
-            ).map(({ id, label, Icon }) => (
-              <li key={id}>
-                <button
-                  onClick={() => {
-                    setCurrentView(id);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center gap-3 px-6 py-3 transition-colors duration-200 ${
-                    currentView === id
-                      ? 'border-l-4 border-[var(--primary)] bg-[#36485b] text-white'
-                      : 'text-[var(--muted)] hover:text-white hover:bg-[#2c3e50] border-l-4 border-transparent'
-                  }`}
-                >
-                  <Icon className="w-5 h-5" />
-                  <span className="text-base text-left">{label}</span>
-                </button>
+        <nav className="sidebar-nav flex-grow mt-2 overflow-y-auto overflow-x-hidden">
+          <ul className="space-y-2">
+            {seccionesMenu.map((seccion) => (
+              <li key={seccion.titulo}>
+                <p className="px-6 pt-4 pb-1.5 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-[#7fd3a4]">
+                  <span className="w-1 h-3.5 rounded-full bg-[#7fd3a4]" />
+                  {seccion.titulo}
+                </p>
+                <ul className="space-y-0.5">
+                  {seccion.items.map(({ id, label, Icon }) => (
+                    <li key={id}>
+                      <button
+                        onClick={() => {
+                          setCurrentView(id);
+                          setSidebarOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-6 py-2.5 transition-colors duration-200 ${
+                          currentView === id
+                            ? 'border-l-4 border-[var(--primary)] bg-[#36485b] text-white'
+                            : 'text-[var(--muted)] hover:text-white hover:bg-[#2c3e50] border-l-4 border-transparent'
+                        }`}
+                      >
+                        <Icon className="w-5 h-5" />
+                        <span className="text-sm text-left">{label}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
@@ -411,7 +448,9 @@ export default function App() {
 
         {currentView === 'dashboard' && <Dashboard corredorId={corredorId} onNavigate={() => setCurrentView('agenda')} />}
         {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
+        {esAdmin && currentView === 'rrhh' && <RrhhView corredorId={corredorId} />}
         {currentView === 'productos' && <ProductosView />}
+        {currentView === 'inventario' && <InventarioView />}
         {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}
         {currentView === 'pedidos' && <MisPedidos corredorId={corredorId} />}
         {currentView === 'clientes' && <ClientesView corredorId={corredorId} />}

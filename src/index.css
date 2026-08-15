@@ -68,6 +68,23 @@ html {
   background-color: var(--bg);
 }
 
+.sidebar-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+  background: #3d4f61;
+  border-radius: 3px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+  background: #52677c;
+}
+
 html,
 body {
   transition: background-color 0.2s ease, color 0.2s ease;

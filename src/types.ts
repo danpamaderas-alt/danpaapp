@@ -184,6 +184,8 @@ export interface Database {
           corredor_id: string;
           cliente_id: string | null;
           total: number;
+          descuento: number;
+          vendedor_id: string | null;
           notas: string | null;
           estado: string;
           estado_pago: string;
@@ -198,6 +200,8 @@ export interface Database {
           corredor_id: string;
           cliente_id?: string | null;
           total?: number;
+          descuento?: number;
+          vendedor_id?: string | null;
           notas?: string | null;
           estado?: string;
           estado_pago?: string;
@@ -212,6 +216,8 @@ export interface Database {
           corredor_id?: string;
           cliente_id?: string | null;
           total?: number;
+          descuento?: number;
+          vendedor_id?: string | null;
           notas?: string | null;
           estado?: string;
           estado_pago?: string;
@@ -225,6 +231,13 @@ export interface Database {
           {
             foreignKeyName: 'pedidos_corredor_id_fkey';
             columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'pedidos_vendedor_id_fkey';
+            columns: ['vendedor_id'];
             isOneToOne: false;
             referencedRelation: 'usuarios';
             referencedColumns: ['id'];
@@ -660,6 +673,218 @@ export interface Database {
             columns: ['corredor_id'];
             isOneToOne: false;
             referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      empleados: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          nombre: string;
+          telefono: string | null;
+          dni: string | null;
+          direccion: string | null;
+          puesto: string | null;
+          salario: number;
+          fecha_ingreso: string | null;
+          tipo_liquidacion: string;
+          activo: boolean;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          nombre: string;
+          telefono?: string | null;
+          dni?: string | null;
+          direccion?: string | null;
+          puesto?: string | null;
+          salario?: number;
+          fecha_ingreso?: string | null;
+          tipo_liquidacion?: string;
+          activo?: boolean;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          nombre?: string;
+          telefono?: string | null;
+          dni?: string | null;
+          direccion?: string | null;
+          puesto?: string | null;
+          salario?: number;
+          fecha_ingreso?: string | null;
+          tipo_liquidacion?: string;
+          activo?: boolean;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'empleados_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      asistencias: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          empleado_id: string;
+          fecha: string;
+          hora_entrada: string | null;
+          hora_salida: string | null;
+          estado: string;
+          horas_extra: number;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          empleado_id: string;
+          fecha?: string;
+          hora_entrada?: string | null;
+          hora_salida?: string | null;
+          estado?: string;
+          horas_extra?: number;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          empleado_id?: string;
+          fecha?: string;
+          hora_entrada?: string | null;
+          hora_salida?: string | null;
+          estado?: string;
+          horas_extra?: number;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'asistencias_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'asistencias_empleado_id_fkey';
+            columns: ['empleado_id'];
+            isOneToOne: false;
+            referencedRelation: 'empleados';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      licencias: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          empleado_id: string;
+          tipo: string;
+          fecha_desde: string;
+          fecha_hasta: string;
+          estado: string;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          empleado_id: string;
+          tipo: string;
+          fecha_desde: string;
+          fecha_hasta: string;
+          estado?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          empleado_id?: string;
+          tipo?: string;
+          fecha_desde?: string;
+          fecha_hasta?: string;
+          estado?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'licencias_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'licencias_empleado_id_fkey';
+            columns: ['empleado_id'];
+            isOneToOne: false;
+            referencedRelation: 'empleados';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      liquidaciones: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          empleado_id: string;
+          periodo: string;
+          monto: number;
+          estado: string;
+          fecha_pago: string | null;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          empleado_id: string;
+          periodo: string;
+          monto?: number;
+          estado?: string;
+          fecha_pago?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          empleado_id?: string;
+          periodo?: string;
+          monto?: number;
+          estado?: string;
+          fecha_pago?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'liquidaciones_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'liquidaciones_empleado_id_fkey';
+            columns: ['empleado_id'];
+            isOneToOne: false;
+            referencedRelation: 'empleados';
             referencedColumns: ['id'];
           }
         ];
