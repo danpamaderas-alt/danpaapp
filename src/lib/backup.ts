@@ -11,6 +11,10 @@ const TABLAS_POR_CORREDOR = [
   'clientes',
   'pedidos',
   'pedido_items',
+  'empleados',
+  'asistencias',
+  'licencias',
+  'liquidaciones',
 ];
 
 const TABLAS_GLOBALES = ['productos'];
