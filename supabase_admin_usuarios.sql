@@ -39,8 +39,9 @@ AS $$
 $$;
 
 -- Crear un usuario con perfil (solo admin).
--- Crea la cuenta de auth y la fila en usuarios la genera el
--- trigger on_auth_user_created (perfil viene de user_metadata).
+-- Crea la cuenta de auth; la fila en usuarios la crea el trigger
+-- on_auth_user_created (siempre 'corredor', Fase 1) y acá se corrige
+-- el perfil al que eligió el admin (SECURITY DEFINER => bypass RLS).
 CREATE OR REPLACE FUNCTION public.admin_crear_usuario(
   p_nombre text,
   p_email text,
@@ -93,8 +94,7 @@ BEGIN
       'email', lower(p_email),
       'email_verified', true,
       'phone_verified', false,
-      'nombre', p_nombre,
-      'perfil', p_perfil
+      'nombre', p_nombre
     ),
     now(),
     now()
@@ -118,6 +118,11 @@ BEGIN
     now(),
     now()
   );
+
+  INSERT INTO public.usuarios (id, email, nombre, perfil, activo)
+  VALUES (v_id, lower(p_email), p_nombre, p_perfil, true)
+  ON CONFLICT (id) DO UPDATE
+    SET email = excluded.email, nombre = excluded.nombre, perfil = excluded.perfil;
 
   RETURN v_id;
 END;

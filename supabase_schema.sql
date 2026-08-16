@@ -182,7 +182,9 @@ CREATE INDEX IF NOT EXISTS idx_cliente_notas_cliente ON public.cliente_notas (cl
 -- ============================================================
 -- AUTOCREACIÓN DEL PERFIL AL REGISTRARSE
 -- Crea la fila en usuarios cuando se registra un nuevo auth.user.
--- nombre/perfil se leen de user_metadata del registro.
+-- nombre se lee de user_metadata del registro; perfil SIEMPRE 'corredor'
+-- (Fase 1: no confiar en raw_user_meta_data->>'perfil', es editable por
+-- el usuario y permitía auto-registrarse como admin).
 -- ============================================================
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger
@@ -196,7 +198,7 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'nombre', split_part(COALESCE(NEW.email, ''), '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'perfil', 'corredor'),
+    'corredor',
     true
   )
   ON CONFLICT (id) DO NOTHING;

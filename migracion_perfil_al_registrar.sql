@@ -3,8 +3,13 @@
 --
 -- 1) Crea el trigger que arma la fila en "usuarios" automáticamente
 --    cada vez que se registra una cuenta (idempotente).
+--    IMPORTANTE (Fase 1): el trigger NO confía en
+--    raw_user_meta_data->>'perfil' (campo editable por el usuario,
+--    permitía auto-registrarse como admin). Siempre crea 'corredor'.
+--    El perfil real lo asigna admin_crear_usuario() en
+--    migracion_seguridad_fase1.sql (SECURITY DEFINER con whitelist).
 -- 2) Backfill: crea las filas de "usuarios" que faltan para las
---    cuentas ya existentes en auth.users.
+--    cuentas ya existentes en auth.users (siempre 'corredor').
 -- 3) Deja todos los perfiles activos (solo si necesitás reactivar).
 --
 -- Ejecutalo completo en el SQL Editor del proyecto
@@ -24,7 +29,7 @@ BEGIN
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'nombre', split_part(COALESCE(NEW.email, ''), '@', 1)),
-    COALESCE(NEW.raw_user_meta_data->>'perfil', 'corredor'),
+    'corredor',
     true
   )
   ON CONFLICT (id) DO NOTHING;
@@ -43,7 +48,7 @@ SELECT
   u.id,
   u.email,
   COALESCE(u.raw_user_meta_data->>'nombre', split_part(COALESCE(u.email, ''), '@', 1)),
-  COALESCE(u.raw_user_meta_data->>'perfil', 'corredor'),
+  'corredor',
   true
 FROM auth.users u
 WHERE NOT EXISTS (

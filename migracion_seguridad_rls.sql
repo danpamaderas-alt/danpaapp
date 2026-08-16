@@ -63,10 +63,17 @@ CREATE POLICY "own_delete_pedido_items" ON public.pedido_items FOR DELETE TO aut
   EXISTS (SELECT 1 FROM public.pedidos p WHERE p.id = pedido_items.pedido_id AND p.corredor_id = auth.uid())
 );
 
--- 5) productos: catálogo compartido (solo autenticados; delete solo admin)
+-- 5) productos: catálogo compartido (solo autenticados; delete solo admin).
+--    Fase 1: UPDATE solo admin/ventas activos. INSERT queda abierto porque
+--    el formulario de Nuevo Pedido crea productos en línea.
 CREATE POLICY "cat_select_productos" ON public.productos FOR SELECT TO authenticated USING (true);
 CREATE POLICY "cat_insert_productos" ON public.productos FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "cat_update_productos" ON public.productos FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+DROP POLICY IF EXISTS cat_update_productos ON public.productos;
+CREATE POLICY "cat_update_productos" ON public.productos FOR UPDATE TO authenticated USING (
+  EXISTS (SELECT 1 FROM public.usuarios u WHERE u.id = auth.uid() AND u.activo AND u.perfil IN ('admin', 'ventas'))
+) WITH CHECK (
+  EXISTS (SELECT 1 FROM public.usuarios u WHERE u.id = auth.uid() AND u.activo AND u.perfil IN ('admin', 'ventas'))
+);
 CREATE POLICY "cat_delete_productos" ON public.productos FOR DELETE TO authenticated USING (
   EXISTS (SELECT 1 FROM public.usuarios u WHERE u.id = auth.uid() AND u.perfil = 'admin')
 );
@@ -88,6 +95,7 @@ CREATE POLICY "usuarios_delete" ON public.usuarios FOR DELETE TO authenticated U
 );
 
 -- 7) RPCs admin (SECURITY DEFINER con chequeo)
+-- Fase 1: is_admin() exige activo (un admin bloqueado pierde poder).
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS boolean
 LANGUAGE sql
@@ -95,7 +103,7 @@ STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT EXISTS (SELECT 1 FROM public.usuarios WHERE id = auth.uid() AND perfil = 'admin');
+  SELECT EXISTS (SELECT 1 FROM public.usuarios WHERE id = auth.uid() AND perfil = 'admin' AND activo);
 $$;
 
 CREATE OR REPLACE FUNCTION public.admin_listar_usuarios()
@@ -118,18 +126,26 @@ AS $$
 DECLARE v_id uuid;
 BEGIN
   IF NOT public.is_admin() THEN RAISE EXCEPTION 'No autorizado'; END IF;
+  IF p_perfil NOT IN ('admin', 'ventas', 'corredor') THEN RAISE EXCEPTION 'Perfil inválido'; END IF;
+  IF char_length(p_password) < 6 THEN RAISE EXCEPTION 'La contraseña debe tener al menos 6 caracteres'; END IF;
+  IF EXISTS (SELECT 1 FROM auth.users WHERE lower(email) = lower(p_email)) THEN RAISE EXCEPTION 'Ya existe un usuario con ese email'; END IF;
   v_id := gen_random_uuid();
   INSERT INTO auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at)
   VALUES ('00000000-0000-0000-0000-000000000000', v_id, 'authenticated', 'authenticated', lower(p_email),
           crypt(p_password, gen_salt('bf')),
           now(),
           '{"provider":"email","providers":["email"]}',
-          jsonb_build_object('nombre', p_nombre, 'perfil', p_perfil),
+          jsonb_build_object('nombre', p_nombre),
           now(), now());
   INSERT INTO auth.identities (id, user_id, provider_id, provider, identity_data, last_sign_in_at, created_at, updated_at)
   VALUES (gen_random_uuid(), v_id, lower(p_email), 'email',
           jsonb_build_object('sub', v_id::text, 'email', lower(p_email)),
           now(), now(), now());
+  -- Fase 1: el trigger crea la fila con 'corredor'; acá se fija el perfil real.
+  INSERT INTO public.usuarios (id, email, nombre, perfil, activo)
+  VALUES (v_id, lower(p_email), p_nombre, p_perfil, true)
+  ON CONFLICT (id) DO UPDATE
+    SET email = excluded.email, nombre = excluded.nombre, perfil = excluded.perfil;
   RETURN v_id;
 END $$;
 

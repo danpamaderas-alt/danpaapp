@@ -59,7 +59,6 @@ import InventarioView from './components/InventarioView';
 import Login from './components/Login';
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
-import { GOD_MODE, godUsuario } from './lib/god';
 
 type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh' | 'contratistas';
 
@@ -100,7 +99,6 @@ export default function App() {
   }, [sidebarOpen]);
 
   useEffect(() => {
-    if (GOD_MODE) return;
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
@@ -115,8 +113,6 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (GOD_MODE) return;
-
     if (!session?.user?.id) {
       setCorredor(null);
       setPerfilError(null);
@@ -209,7 +205,7 @@ export default function App() {
     );
   }
 
-  if (!GOD_MODE && (authLoading || (session && perfilCargando))) {
+  if (authLoading || (session && perfilCargando)) {
     return (
       <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center text-[var(--text)]">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
@@ -217,11 +213,11 @@ export default function App() {
     );
   }
 
-  if (!GOD_MODE && !session) {
+  if (!session) {
     return <Login />;
   }
 
-  if (!GOD_MODE && (!corredor || !corredor.activo || perfilError)) {
+  if (!corredor || !corredor.activo || perfilError) {
     return (
       <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
         <div className="bg-[var(--surface)] p-8 rounded-xl border border-[var(--border)] max-w-md w-full text-center">
@@ -242,9 +238,10 @@ export default function App() {
     );
   }
 
-  const c = GOD_MODE ? godUsuario : corredor!;
+  const c = corredor!;
   const corredorId = c.id;
   const esAdmin = c.perfil === 'admin';
+  const esGestion = esAdmin || c.perfil === 'ventas';
 
   const seccionesMenu = [
     {
@@ -261,8 +258,8 @@ export default function App() {
     {
       titulo: 'Catálogo',
       items: [
-        { id: 'productos', label: 'Productos', Icon: TreePine },
-        { id: 'inventario', label: 'Inventario', Icon: Boxes },
+        ...(esGestion ? [{ id: 'productos', label: 'Productos', Icon: TreePine }] : []),
+        ...(esGestion ? [{ id: 'inventario', label: 'Inventario', Icon: Boxes }] : []),
       ],
     },
     {
@@ -283,7 +280,7 @@ export default function App() {
         ...(esAdmin ? [{ id: 'contratistas', label: 'Subcontratados', Icon: Wrench }] : []),
         { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
         { id: 'informes', label: 'Informes', Icon: BarChart3 },
-        { id: 'backup', label: 'Backup', Icon: Database },
+        ...(esGestion ? [{ id: 'backup', label: 'Backup', Icon: Database }] : []),
       ],
     },
   ] as { titulo: string; items: { id: View; label: string; Icon: LucideIcon }[] }[];
@@ -453,8 +450,8 @@ export default function App() {
         {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
         {esAdmin && currentView === 'rrhh' && <RrhhView corredorId={corredorId} />}
         {esAdmin && currentView === 'contratistas' && <ContratistasView corredorId={corredorId} />}
-        {currentView === 'productos' && <ProductosView />}
-        {currentView === 'inventario' && <InventarioView />}
+        {esGestion && currentView === 'productos' && <ProductosView />}
+        {esGestion && currentView === 'inventario' && <InventarioView />}
         {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}
         {currentView === 'pedidos' && <MisPedidos corredorId={corredorId} />}
         {currentView === 'clientes' && <ClientesView corredorId={corredorId} />}
@@ -464,7 +461,7 @@ export default function App() {
         {currentView === 'podas' && <PodasView corredorId={corredorId} />}
         {currentView === 'finanzas' && <FinanzasView corredorId={corredorId} />}
         {currentView === 'informes' && <InformesView corredorId={corredorId} />}
-        {currentView === 'backup' && <BackupView corredorId={corredorId} />}
+        {esGestion && currentView === 'backup' && <BackupView corredorId={corredorId} />}
       </div>
     </div>
   );

@@ -92,7 +92,15 @@ export async function crearPedido(
       }
 
       const nuevoStock = stockActual - i.cantidad;
-      await supabase.from('productos').update({ stock: nuevoStock }).eq('id', i.producto_id);
+      const { error: stockError } = await supabase.rpc('descontar_stock', {
+        p_producto_id: i.producto_id,
+        p_cantidad: i.cantidad,
+      });
+      if (stockError) {
+        await supabase.from('pedido_items').delete().eq('pedido_id', pedido.id);
+        await supabase.from('pedidos').delete().eq('id', pedido.id);
+        throw new Error(stockError.message);
+      }
       if (nuevoStock <= 0) {
         await crearNotificacion({
           corredor_id: corredorId,

@@ -19,5 +19,9 @@ CREATE TABLE IF NOT EXISTS public.notificaciones (
 CREATE INDEX IF NOT EXISTS idx_notificaciones_corredor ON public.notificaciones (corredor_id);
 CREATE INDEX IF NOT EXISTS idx_notificaciones_creado ON public.notificaciones (creado_en DESC);
 
-ALTER TABLE public.notificaciones DISABLE ROW LEVEL SECURITY;
-GRANT ALL ON TABLE public.notificaciones TO anon, authenticated, service_role;
+-- Fase 1: REVOKE de anon (RLS ya está habilitada por migracion_seguridad_rls.sql
+-- con políticas own_* para authenticated). El GRANT ALL a anon era un riesgo
+-- latente: con RLS deshabilitada, cualquiera podía leer/escribir notificaciones.
+ALTER TABLE public.notificaciones ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.notificaciones FROM anon;
+GRANT ALL ON TABLE public.notificaciones TO authenticated, service_role;
