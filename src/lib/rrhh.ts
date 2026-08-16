@@ -98,7 +98,7 @@ export const badgeEstado = (lista: { valor: string; clase: string }[], v: string
 export async function fetchEmpleados(corredorId: string): Promise<Empleado[]> {
   const { data, error } = await supabase
     .from('empleados')
-    .select('*')
+    .select('id, nombre, telefono, dni, direccion, puesto, salario, fecha_ingreso, tipo_liquidacion, activo, notas')
     .eq('corredor_id', corredorId)
     .order('activo', { ascending: false })
     .order('nombre', { ascending: true })
@@ -147,7 +147,7 @@ export async function fetchAsistencias(
 ): Promise<Asistencia[]> {
   let query = supabase
     .from('asistencias')
-    .select('*')
+    .select('id, empleado_id, fecha, hora_entrada, hora_salida, estado, horas_extra, notas')
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
     .limit(500);
@@ -216,7 +216,7 @@ export async function upsertAsistencias(
 export async function fetchLicencias(corredorId: string): Promise<Licencia[]> {
   const { data, error } = await supabase
     .from('licencias')
-    .select('*')
+    .select('id, empleado_id, tipo, fecha_desde, fecha_hasta, estado, notas')
     .eq('corredor_id', corredorId)
     .order('fecha_desde', { ascending: false })
     .limit(500);
@@ -257,7 +257,7 @@ export async function eliminarLicencia(id: string): Promise<void> {
 export async function fetchLiquidaciones(corredorId: string): Promise<Liquidacion[]> {
   const { data, error } = await supabase
     .from('liquidaciones')
-    .select('*')
+    .select('id, empleado_id, periodo, monto, estado, fecha_pago, notas')
     .eq('corredor_id', corredorId)
     .order('periodo', { ascending: false })
     .limit(500);

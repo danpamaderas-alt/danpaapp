@@ -62,8 +62,8 @@ export default function NuevoPedido({ corredorId, onSuccess }: NuevoPedidoProps)
         setLoading(true);
         setError(null);
         const [{ data: prods, error: e1 }, { data: clis, error: e2 }, { data: vends, error: e3 }] = await Promise.all([
-          supabase.from('productos').select('*').eq('activo', true).order('nombre', { ascending: true }),
-          supabase.from('clientes').select('*').eq('corredor_id', corredorId).eq('activo', true).order('nombre', { ascending: true }),
+          supabase.from('productos').select('id, nombre, precio, stock').eq('activo', true).order('nombre', { ascending: true }),
+          supabase.from('clientes').select('id, nombre').eq('corredor_id', corredorId).eq('activo', true).order('nombre', { ascending: true }),
           supabase.rpc('listar_vendedores'),
         ]);
         if (e1) throw e1;

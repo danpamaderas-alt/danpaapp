@@ -6,7 +6,7 @@ export type Usuario = Database['public']['Tables']['usuarios']['Row'];
 export async function fetchCorredorActual(userId: string): Promise<Usuario | null> {
   const { data, error } = await supabase
     .from('usuarios')
-    .select('*')
+    .select('id, email, nombre, perfil, activo')
     .eq('id', userId)
     .maybeSingle();
 

@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import type { Database } from '../types';
-import { crearNotificacion } from './notificaciones';
 
 interface NuevoItemPedido {
   producto_id: string;
@@ -15,8 +14,10 @@ interface ResultadoCrearPedido {
 }
 
 /**
- * Crea un pedido para un corredor, inserta sus ítems y descuenta el stock.
- * Nota: no es transaccional a nivel de BD; en producción se recomienda una RPC.
+ * Crea un pedido vía la RPC transaccional crear_pedido (migracion_seguridad_fase3.sql).
+ * El servidor crea el pedido, inserta los ítems, descuenta el stock de forma
+ * atómica (UPDATE ... WHERE stock >= cantidad) y genera las notificaciones de
+ * stock bajo; si algo falla, toda la transacción se revierte.
  */
 export async function crearPedido(
   corredorId: string,
@@ -30,103 +31,23 @@ export async function crearPedido(
     if (!corredorId) throw new Error('Falta el corredor seleccionado.');
     if (items.length === 0) throw new Error('Agrega al menos un producto al pedido.');
 
-    const subtotal = items.reduce((acc, i) => acc + i.cantidad * i.precio_unitario, 0);
-    const montoDescuento = Math.max(0, Math.min(descuento || 0, subtotal));
-    const total = Math.max(0, subtotal - montoDescuento);
+    const { data, error } = await supabase.rpc('crear_pedido', {
+      p_corredor_id: corredorId,
+      p_cliente_id: clienteId,
+      p_items: items.map((i) => ({
+        producto_id: i.producto_id,
+        cantidad: i.cantidad,
+        precio_unitario: i.precio_unitario,
+      })),
+      p_notas: notas || null,
+      p_descuento: descuento || 0,
+      p_vendedor_id: vendedorId || null,
+    });
 
-    const { data: { user } } = await supabase.auth.getUser();
+    if (error) throw error;
+    if (!data) throw new Error('No se pudo generar el pedido.');
 
-    // 1. Crear el pedido
-    const { data: pedido, error: pedidoError } = await supabase
-      .from('pedidos')
-      .insert({
-        corredor_id: corredorId,
-        cliente_id: clienteId,
-        vendedor_id: vendedorId || null,
-        creado_por: user?.id || null,
-        total,
-        descuento: montoDescuento,
-        notas: notas || null,
-        estado: 'Pendiente',
-        estado_pago: 'no_pagado',
-      })
-      .select('id')
-      .single();
-
-    if (pedidoError) throw pedidoError;
-    if (!pedido) throw new Error('No se pudo generar el pedido.');
-
-    // 2. Insertar los ítems
-    const itemsToInsert = items.map((i) => ({
-      pedido_id: pedido.id,
-      producto_id: i.producto_id,
-      cantidad: i.cantidad,
-      precio_unitario: i.precio_unitario,
-    }));
-
-    const { error: itemsError } = await supabase.from('pedido_items').insert(itemsToInsert);
-    if (itemsError) {
-      await supabase.from('pedidos').delete().eq('id', pedido.id);
-      throw new Error(`Error al guardar los ítems del pedido: ${itemsError.message}`);
-    }
-
-    // 3. Verificar y descontar stock (con rollback si insuficiente)
-    for (const i of items) {
-      const { data: prod, error: prodErr } = await supabase
-        .from('productos')
-        .select('stock, stock_minimo')
-        .eq('id', i.producto_id)
-        .single();
-
-      if (prodErr || !prod) {
-        await supabase.from('pedido_items').delete().eq('pedido_id', pedido.id);
-        await supabase.from('pedidos').delete().eq('id', pedido.id);
-        throw new Error(`Producto no encontrado o error de stock.`);
-      }
-
-      const stockActual = prod.stock || 0;
-      if (stockActual < i.cantidad) {
-        await supabase.from('pedido_items').delete().eq('pedido_id', pedido.id);
-        await supabase.from('pedidos').delete().eq('id', pedido.id);
-        throw new Error(`Stock insuficiente para procesar el pedido.`);
-      }
-
-      const nuevoStock = stockActual - i.cantidad;
-      const { error: stockError } = await supabase.rpc('descontar_stock', {
-        p_producto_id: i.producto_id,
-        p_cantidad: i.cantidad,
-      });
-      if (stockError) {
-        await supabase.from('pedido_items').delete().eq('pedido_id', pedido.id);
-        await supabase.from('pedidos').delete().eq('id', pedido.id);
-        throw new Error(stockError.message);
-      }
-      if (nuevoStock <= 0) {
-        await crearNotificacion({
-          corredor_id: corredorId,
-          tipo: 'stock_bajo',
-          nivel: 'error',
-          titulo: 'Stock agotado',
-          mensaje: `El producto ${i.producto_id} está agotado.`, // TODO: obtener nombre real del producto
-          enlace: `/productos`,
-          dato_referencia: i.producto_id,
-          leido: false,
-        });
-      } else if (nuevoStock <= (prod.stock_minimo || 0)) {
-        await crearNotificacion({
-          corredor_id: corredorId,
-          tipo: 'stock_bajo',
-          nivel: 'warning',
-          titulo: 'Stock bajo',
-          mensaje: `El producto ${i.producto_id} está por debajo del mínimo.`, // TODO: obtener nombre real del producto
-          enlace: `/productos`,
-          dato_referencia: i.producto_id,
-          leido: false,
-        });
-      }
-    }
-
-    return { success: true, pedidoId: pedido.id };
+    return { success: true, pedidoId: data };
   } catch (error: any) {
     console.error('Error al crear el pedido:', error);
     return {

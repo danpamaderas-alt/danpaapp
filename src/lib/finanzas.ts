@@ -55,7 +55,7 @@ export const OPCIONES_CUENTA = [
 export async function fetchMovimientos(filtros: FiltrosMovimientos): Promise<Movimiento[]> {
   let query = supabase
     .from('movimientos')
-    .select('*')
+    .select('id, corredor_id, tipo, concepto, monto, categoria, fecha, notas, creado_por, pagador, cuenta, tiene_factura, nro_factura')
     .eq('corredor_id', filtros.corredorId)
     .order('fecha', { ascending: false })
     .limit(500);

@@ -68,19 +68,22 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
         ] = await Promise.all([
           supabase
             .from('pedidos')
-            .select('*, clientes(*), vendedor:usuarios!pedidos_vendedor_id_fkey(nombre), pedido_items(*)')
+            .select('id, corredor_id, cliente_id, total, estado, estado_pago, monto_pagado, descuento, notas, created_at, clientes(nombre), vendedor:usuarios!pedidos_vendedor_id_fkey(nombre), pedido_items(id, producto_id, cantidad, precio_unitario)')
             .eq('corredor_id', corredorId)
             .order('created_at', { ascending: false })
             .limit(100),
-          supabase.from('productos').select('*').order('nombre', { ascending: true }),
+          supabase
+            .from('productos')
+            .select('id, nombre, stock, stock_minimo, activo')
+            .order('nombre', { ascending: true }),
           supabase
             .from('agenda')
-            .select('*')
+            .select('id, titulo, tipo, fecha, hora, estado, organismo')
             .eq('corredor_id', corredorId)
             .order('fecha', { ascending: true, nullsFirst: true }),
           supabase
             .from('movimientos')
-            .select('*')
+            .select('id, tipo, concepto, monto, categoria, fecha')
             .eq('corredor_id', corredorId)
             .order('fecha', { ascending: false })
             .limit(500),

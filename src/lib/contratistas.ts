@@ -49,7 +49,7 @@ export const claseEstadoTrabajo = (v: string) => ESTADOS_TRABAJO.find((t) => t.v
 export async function fetchContratistas(corredorId: string): Promise<Contratista[]> {
   const { data, error } = await supabase
     .from('contratistas')
-    .select('*')
+    .select('id, nombre, telefono, dni, especialidad, tarifa, tipo_tarifa, activo, notas')
     .eq('corredor_id', corredorId)
     .order('activo', { ascending: false })
     .order('nombre', { ascending: true })
@@ -96,7 +96,7 @@ export async function fetchTrabajos(
 ): Promise<TrabajoContratista[]> {
   let query = supabase
     .from('contratista_trabajos')
-    .select('*')
+    .select('id, contratista_id, descripcion, lugar, fecha, costo, estado, fecha_pago, notas')
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
     .limit(500);

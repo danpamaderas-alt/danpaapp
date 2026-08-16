@@ -44,7 +44,7 @@ export async function fetchPodas(
 ): Promise<Poda[]> {
   let query = supabase
     .from('podas')
-    .select('*')
+    .select('id, cantidad_arboles, detalle, tipo_arbol, tipo_poda, lugar, fecha, notas')
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
     .limit(500);

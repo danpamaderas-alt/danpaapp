@@ -105,7 +105,7 @@ export default function VisitasView({ corredorId }: VisitasViewProps) {
     try {
       const { data, error: e } = await supabase
         .from('clientes')
-        .select('*')
+        .select('id, nombre, activo')
         .eq('corredor_id', corredorId)
         .order('nombre', { ascending: true });
       if (!e) setClientes((data as Cliente[]) || []);

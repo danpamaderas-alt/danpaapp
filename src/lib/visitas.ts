@@ -24,7 +24,7 @@ export async function fetchVisitas(
 ): Promise<Visita[]> {
   let query = supabase
     .from('visitas')
-    .select('*')
+    .select('id, corredor_id, cliente_id, fecha, estado, latitud, longitud')
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
     .limit(500);

@@ -43,7 +43,7 @@ export async function marcarTodasLeido(corredorId: string): Promise<void> {
 export async function fetchNotificaciones(corredorId: string): Promise<Notificacion[]> {
   const { data, error } = await supabase
     .from('notificaciones')
-    .select('*')
+    .select('id, corredor_id, tipo, nivel, titulo, mensaje, enlace, dato_referencia, leido, creado_en')
     .eq('corredor_id', corredorId)
     .order('creado_en', { ascending: false })
     .limit(50);
@@ -87,7 +87,7 @@ const diasHasta = (fecha: Date, desde: Date) => {
 export async function generarRecordatoriosAgenda(corredorId: string): Promise<void> {
   const { data, error } = await supabase
     .from('agenda')
-    .select('*')
+    .select('id, titulo, tipo, hora, organismo, fecha, estado, dias_aviso')
     .eq('corredor_id', corredorId)
     .not('fecha', 'is', null)
     .in('estado', ['pendiente', 'presentado'])

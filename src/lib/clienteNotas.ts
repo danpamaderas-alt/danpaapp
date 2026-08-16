@@ -7,7 +7,7 @@ export type ClienteNota = Database['public']['Tables']['cliente_notas']['Row'];
 export async function fetchNotas(clienteId: string): Promise<ClienteNota[]> {
   const { data, error } = await supabase
     .from('cliente_notas')
-    .select('*')
+    .select('id, nota, created_at')
     .eq('cliente_id', clienteId)
     .order('created_at', { ascending: false });
 

@@ -45,7 +45,7 @@ export default function ClientesView({ corredorId }: ClientesViewProps) {
       setError(null);
       const { data, error: e } = await supabase
         .from('clientes')
-        .select('*')
+        .select('id, nombre, telefono, direccion, notas, tipo_cliente, activo')
         .eq('corredor_id', corredorId)
         .order('nombre', { ascending: true });
       if (e) throw e;
