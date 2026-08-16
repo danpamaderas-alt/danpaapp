@@ -34,6 +34,8 @@ export async function crearPedido(
     const montoDescuento = Math.max(0, Math.min(descuento || 0, subtotal));
     const total = Math.max(0, subtotal - montoDescuento);
 
+    const { data: { user } } = await supabase.auth.getUser();
+
     // 1. Crear el pedido
     const { data: pedido, error: pedidoError } = await supabase
       .from('pedidos')
@@ -41,6 +43,7 @@ export async function crearPedido(
         corredor_id: corredorId,
         cliente_id: clienteId,
         vendedor_id: vendedorId || null,
+        creado_por: user?.id || null,
         total,
         descuento: montoDescuento,
         notas: notas || null,

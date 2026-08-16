@@ -24,6 +24,7 @@ import {
   Bell,
   CheckCheck,
   Boxes,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -53,13 +54,14 @@ import InformesView from './components/InformesView';
 import BackupView from './components/BackupView';
 import UsuariosView from './components/UsuariosView';
 import RrhhView from './components/RrhhView';
+import ContratistasView from './components/ContratistasView';
 import InventarioView from './components/InventarioView';
 import Login from './components/Login';
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
 import { GOD_MODE, godUsuario } from './lib/god';
 
-type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh';
+type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh' | 'contratistas';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -278,6 +280,7 @@ export default function App() {
       items: [
         ...(esAdmin ? [{ id: 'usuarios', label: 'Usuarios', Icon: UserCog }] : []),
         ...(esAdmin ? [{ id: 'rrhh', label: 'Recursos Humanos', Icon: UsersRound }] : []),
+        ...(esAdmin ? [{ id: 'contratistas', label: 'Subcontratados', Icon: Wrench }] : []),
         { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
         { id: 'informes', label: 'Informes', Icon: BarChart3 },
         { id: 'backup', label: 'Backup', Icon: Database },
@@ -449,6 +452,7 @@ export default function App() {
         {currentView === 'dashboard' && <Dashboard corredorId={corredorId} onNavigate={() => setCurrentView('agenda')} />}
         {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
         {esAdmin && currentView === 'rrhh' && <RrhhView corredorId={corredorId} />}
+        {esAdmin && currentView === 'contratistas' && <ContratistasView corredorId={corredorId} />}
         {currentView === 'productos' && <ProductosView />}
         {currentView === 'inventario' && <InventarioView />}
         {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}

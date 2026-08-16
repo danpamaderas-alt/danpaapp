@@ -186,6 +186,7 @@ export interface Database {
           total: number;
           descuento: number;
           vendedor_id: string | null;
+          creado_por: string | null;
           notas: string | null;
           estado: string;
           estado_pago: string;
@@ -202,6 +203,7 @@ export interface Database {
           total?: number;
           descuento?: number;
           vendedor_id?: string | null;
+          creado_por?: string | null;
           notas?: string | null;
           estado?: string;
           estado_pago?: string;
@@ -218,6 +220,7 @@ export interface Database {
           total?: number;
           descuento?: number;
           vendedor_id?: string | null;
+          creado_por?: string | null;
           notas?: string | null;
           estado?: string;
           estado_pago?: string;
@@ -885,6 +888,113 @@ export interface Database {
             columns: ['empleado_id'];
             isOneToOne: false;
             referencedRelation: 'empleados';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      contratistas: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          nombre: string;
+          telefono: string | null;
+          dni: string | null;
+          especialidad: string | null;
+          tarifa: number;
+          tipo_tarifa: string;
+          activo: boolean;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          nombre: string;
+          telefono?: string | null;
+          dni?: string | null;
+          especialidad?: string | null;
+          tarifa?: number;
+          tipo_tarifa?: string;
+          activo?: boolean;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          nombre?: string;
+          telefono?: string | null;
+          dni?: string | null;
+          especialidad?: string | null;
+          tarifa?: number;
+          tipo_tarifa?: string;
+          activo?: boolean;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'contratistas_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      contratista_trabajos: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          contratista_id: string;
+          descripcion: string;
+          lugar: string | null;
+          fecha: string;
+          costo: number;
+          estado: string;
+          fecha_pago: string | null;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          contratista_id: string;
+          descripcion: string;
+          lugar?: string | null;
+          fecha?: string;
+          costo?: number;
+          estado?: string;
+          fecha_pago?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          contratista_id?: string;
+          descripcion?: string;
+          lugar?: string | null;
+          fecha?: string;
+          costo?: number;
+          estado?: string;
+          fecha_pago?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'contratista_trabajos_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contratista_trabajos_contratista_id_fkey';
+            columns: ['contratista_id'];
+            isOneToOne: false;
+            referencedRelation: 'contratistas';
             referencedColumns: ['id'];
           }
         ];
