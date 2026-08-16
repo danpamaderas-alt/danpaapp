@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import {
   PackageOpen,
   PlusCircle,
@@ -40,27 +40,36 @@ import {
   type NivelNotificacion,
 } from './lib/notificaciones';
 import { formatDate } from './lib/format';
-import Dashboard from './components/Dashboard';
-import ProductosView from './components/ProductosView';
-import NuevoPedido from './components/NuevoPedido';
-import MisPedidos from './components/MisPedidos';
-import ClientesView from './components/ClientesView';
-import FinanzasView from './components/FinanzasView';
-import VisitasView from './components/VisitasView';
-import AgendaView from './components/AgendaView';
-import CalendarioView from './components/CalendarioView';
-import PodasView from './components/PodasView';
-import InformesView from './components/InformesView';
-import BackupView from './components/BackupView';
-import UsuariosView from './components/UsuariosView';
-import RrhhView from './components/RrhhView';
-import ContratistasView from './components/ContratistasView';
-import InventarioView from './components/InventarioView';
-import Login from './components/Login';
+
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const ProductosView = lazy(() => import('./components/ProductosView'));
+const NuevoPedido = lazy(() => import('./components/NuevoPedido'));
+const MisPedidos = lazy(() => import('./components/MisPedidos'));
+const ClientesView = lazy(() => import('./components/ClientesView'));
+const FinanzasView = lazy(() => import('./components/FinanzasView'));
+const VisitasView = lazy(() => import('./components/VisitasView'));
+const AgendaView = lazy(() => import('./components/AgendaView'));
+const CalendarioView = lazy(() => import('./components/CalendarioView'));
+const PodasView = lazy(() => import('./components/PodasView'));
+const InformesView = lazy(() => import('./components/InformesView'));
+const BackupView = lazy(() => import('./components/BackupView'));
+const UsuariosView = lazy(() => import('./components/UsuariosView'));
+const RrhhView = lazy(() => import('./components/RrhhView'));
+const ContratistasView = lazy(() => import('./components/ContratistasView'));
+const InventarioView = lazy(() => import('./components/InventarioView'));
+const Login = lazy(() => import('./components/Login'));
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
 
 type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh' | 'contratistas';
+
+function FullLoader() {
+  return (
+    <div className="flex-1 flex items-center justify-center py-24 text-[var(--text)]">
+      <Loader2 className="w-8 h-8 animate-spin text-[var(--primary)]" />
+    </div>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -214,7 +223,11 @@ export default function App() {
   }
 
   if (!session) {
-    return <Login />;
+    return (
+      <Suspense fallback={<FullLoader />}>
+        <Login />
+      </Suspense>
+    );
   }
 
   if (!corredor || !corredor.activo || perfilError) {
@@ -446,22 +459,24 @@ export default function App() {
           </div>
         </header>
 
-        {currentView === 'dashboard' && <Dashboard corredorId={corredorId} onNavigate={() => setCurrentView('agenda')} />}
-        {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
-        {esAdmin && currentView === 'rrhh' && <RrhhView corredorId={corredorId} />}
-        {esAdmin && currentView === 'contratistas' && <ContratistasView corredorId={corredorId} />}
-        {esGestion && currentView === 'productos' && <ProductosView />}
-        {esGestion && currentView === 'inventario' && <InventarioView />}
-        {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}
-        {currentView === 'pedidos' && <MisPedidos corredorId={corredorId} />}
-        {currentView === 'clientes' && <ClientesView corredorId={corredorId} />}
-        {currentView === 'visitas' && <VisitasView corredorId={corredorId} />}
-        {currentView === 'agenda' && <AgendaView corredorId={corredorId} />}
-        {currentView === 'calendario' && <CalendarioView corredorId={corredorId} />}
-        {currentView === 'podas' && <PodasView corredorId={corredorId} />}
-        {currentView === 'finanzas' && <FinanzasView corredorId={corredorId} />}
-        {currentView === 'informes' && <InformesView corredorId={corredorId} />}
-        {esGestion && currentView === 'backup' && <BackupView corredorId={corredorId} />}
+        <Suspense fallback={<FullLoader />}>
+          {currentView === 'dashboard' && <Dashboard corredorId={corredorId} onNavigate={() => setCurrentView('agenda')} />}
+          {esAdmin && currentView === 'usuarios' && <UsuariosView corredorId={corredorId} />}
+          {esAdmin && currentView === 'rrhh' && <RrhhView corredorId={corredorId} />}
+          {esAdmin && currentView === 'contratistas' && <ContratistasView corredorId={corredorId} />}
+          {esGestion && currentView === 'productos' && <ProductosView />}
+          {esGestion && currentView === 'inventario' && <InventarioView />}
+          {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}
+          {currentView === 'pedidos' && <MisPedidos corredorId={corredorId} />}
+          {currentView === 'clientes' && <ClientesView corredorId={corredorId} />}
+          {currentView === 'visitas' && <VisitasView corredorId={corredorId} />}
+          {currentView === 'agenda' && <AgendaView corredorId={corredorId} />}
+          {currentView === 'calendario' && <CalendarioView corredorId={corredorId} />}
+          {currentView === 'podas' && <PodasView corredorId={corredorId} />}
+          {currentView === 'finanzas' && <FinanzasView corredorId={corredorId} />}
+          {currentView === 'informes' && <InformesView corredorId={corredorId} />}
+          {esGestion && currentView === 'backup' && <BackupView corredorId={corredorId} />}
+        </Suspense>
       </div>
     </div>
   );
