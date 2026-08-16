@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../types';
@@ -315,7 +316,7 @@ export default function ClientesView({ corredorId }: ClientesViewProps) {
       )}
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="Nuevo Cliente" onClose={() => setIsModalOpen(false)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <h3 className="text-xl font-bold text-[var(--text)]">Nuevo Cliente</h3>
@@ -412,11 +413,11 @@ export default function ClientesView({ corredorId }: ClientesViewProps) {
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
 
       {editingCliente && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="Editar Cliente" onClose={() => setEditingCliente(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <h3 className="text-xl font-bold text-[var(--text)]">Editar Cliente</h3>
@@ -519,11 +520,11 @@ export default function ClientesView({ corredorId }: ClientesViewProps) {
               </div>
             </form>
           </div>
-        </div>
+        </Modal>
       )}
 
       {notasCliente && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title={`Notas de ${notasCliente.nombre}`} onClose={() => setNotasCliente(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <h3 className="text-xl font-bold text-[var(--text)]">Notas de {notasCliente.nombre}</h3>
@@ -596,7 +597,7 @@ export default function ClientesView({ corredorId }: ClientesViewProps) {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

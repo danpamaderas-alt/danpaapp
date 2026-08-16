@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useState } from 'react';
 import {
   crearAgenda,
@@ -180,7 +181,7 @@ export default function AgendaModal({ corredorId, initial, onClose, onSaved }: A
   };
 
   return (
-    <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <Modal title={tituloModal} onClose={onClose}>
       <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg max-h-[92vh] flex flex-col overflow-hidden">
         <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
           <h3 className="text-xl font-bold text-[var(--text)]">{tituloModal}</h3>
@@ -498,6 +499,6 @@ export default function AgendaModal({ corredorId, initial, onClose, onSaved }: A
           </button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

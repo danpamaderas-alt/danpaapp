@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dinero, hoyISO, getErrorMessage } from '../lib/format';
 import {
@@ -532,7 +533,7 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
       )}
 
       {modal && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title={`${editando ? 'Editar' : 'Nuevo'} ${tab === 'contratistas' ? 'contratista' : 'trabajo'}`} onClose={() => setModal(false)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <div className="flex items-center gap-3">
@@ -768,11 +769,11 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {confirmarEliminar && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="¿Eliminar registro?" onClose={() => setConfirmarEliminar(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <div className="p-3 bg-[var(--danger-soft)] rounded-xl w-fit mx-auto mb-4">
               <Trash2 className="w-8 h-8 text-[var(--danger-deep)]" />
@@ -798,7 +799,7 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

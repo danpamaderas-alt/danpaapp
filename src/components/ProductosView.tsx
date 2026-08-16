@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { costoTotalProducto, desgloseCostos } from '../lib/pedidos';
@@ -463,7 +464,7 @@ export default function ProductosView() {
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title={editandoId ? 'Editar Producto' : 'Nuevo Producto'} onClose={() => setModalOpen(false)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-start bg-[var(--field)]">
               <div>
@@ -741,11 +742,11 @@ export default function ProductosView() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {eliminar && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="Eliminar producto" onClose={() => setEliminar(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-start gap-4">
               <div className="p-2 bg-[var(--danger-soft)] rounded-lg flex-shrink-0">
@@ -775,7 +776,7 @@ export default function ProductosView() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

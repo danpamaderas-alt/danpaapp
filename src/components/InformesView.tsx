@@ -200,7 +200,9 @@ export default function InformesView({ corredorId }: InformesViewProps) {
     descargarTexto(`podas_${mes}.csv`, podasCSV(podas), 'text/csv;charset=utf-8');
   };
 
-  const exportarPDF = () => generarPDFInforme(datosInforme, seleccion);
+  const exportarPDF = async () => {
+    await generarPDFInforme(datosInforme, seleccion);
+  };
 
   return (
     <div className="flex-1 p-4 sm:p-8 max-w-[1440px] mx-auto w-full">

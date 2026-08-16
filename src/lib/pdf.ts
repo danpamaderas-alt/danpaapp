@@ -1,5 +1,3 @@
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { informeEscrito, type DatosInformeEscrito } from './informes';
 
 const ARS = (n: number) =>
@@ -27,7 +25,11 @@ export const TODAS_SECCIONES: SeccionesInforme = {
   podas: true,
 };
 
-export function generarPDFInforme(d: DatosInformeEscrito, secciones: SeccionesInforme = TODAS_SECCIONES): void {
+export async function generarPDFInforme(d: DatosInformeEscrito, secciones: SeccionesInforme = TODAS_SECCIONES): Promise<void> {
+  const [{ jsPDF }, { autoTable }] = await Promise.all([
+    import('jspdf'),
+    import('jspdf-autotable'),
+  ]);
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
   const margin = 14;
   const pageW = 210;

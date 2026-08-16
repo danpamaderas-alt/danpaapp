@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Database } from '../types';
@@ -228,7 +229,7 @@ export default function UsuariosView({ corredorId }: { corredorId: string }) {
       )}
 
       {modal && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="Nuevo usuario" onClose={() => setModal(false)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <div className="flex items-center gap-3">
@@ -323,7 +324,7 @@ export default function UsuariosView({ corredorId }: { corredorId: string }) {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

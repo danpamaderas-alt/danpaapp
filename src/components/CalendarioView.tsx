@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useCallback, useEffect, useState } from 'react';
 import {
   fetchAgenda,
@@ -211,7 +212,7 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
       )}
 
       {confirmarEliminar && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="¿Eliminar registro?" onClose={() => setConfirmarEliminar(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <Trash2 className="w-12 h-12 text-[var(--danger)] mx-auto mb-4" />
             <h3 className="text-xl font-bold text-[var(--text)] mb-2">¿Eliminar registro?</h3>
@@ -233,7 +234,7 @@ export default function CalendarioView({ corredorId }: { corredorId: string }) {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

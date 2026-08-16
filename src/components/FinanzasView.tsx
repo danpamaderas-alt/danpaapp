@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchMovimientos,
@@ -539,7 +540,7 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title={form.id ? 'Editar Movimiento' : 'Nuevo Movimiento'} onClose={() => setModalOpen(false)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <h3 className="text-xl font-bold text-[var(--text)]">{form.id ? 'Editar Movimiento' : 'Nuevo Movimiento'}</h3>
@@ -760,11 +761,11 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {adminOpcionesOpen && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="Opciones de Finanzas" onClose={() => setAdminOpcionesOpen(false)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <h3 className="text-xl font-bold text-[var(--text)]">Opciones de Finanzas</h3>
@@ -865,11 +866,11 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {confirmarEliminar && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="¿Eliminar movimiento?" onClose={() => setConfirmarEliminar(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <Trash2 className="w-12 h-12 text-[var(--danger)] mx-auto mb-4" />
             <h3 className="text-xl font-bold text-[var(--text)] mb-2">¿Eliminar movimiento?</h3>
@@ -893,7 +894,7 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

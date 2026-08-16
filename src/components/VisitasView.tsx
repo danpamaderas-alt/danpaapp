@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   fetchVisitas,
@@ -448,7 +449,7 @@ export default function VisitasView({ corredorId }: VisitasViewProps) {
       )}
 
       {modalOpen && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title={form.id ? 'Editar Visita' : 'Registrar Visita'} onClose={() => setModalOpen(false)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
               <h3 className="text-xl font-bold text-[var(--text)]">{form.id ? 'Editar Visita' : 'Registrar Visita'}</h3>
@@ -551,11 +552,11 @@ export default function VisitasView({ corredorId }: VisitasViewProps) {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {confirmarEliminar && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="¿Eliminar visita?" onClose={() => setConfirmarEliminar(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <Trash2 className="w-12 h-12 text-[var(--danger)] mx-auto mb-4" />
             <h3 className="text-xl font-bold text-[var(--text)] mb-2">¿Eliminar visita?</h3>
@@ -579,7 +580,7 @@ export default function VisitasView({ corredorId }: VisitasViewProps) {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

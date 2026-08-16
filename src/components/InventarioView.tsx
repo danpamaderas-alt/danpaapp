@@ -1,3 +1,4 @@
+import { Modal } from './Modal';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { costoTotalProducto } from '../lib/pedidos';
@@ -290,7 +291,7 @@ export default function InventarioView() {
       )}
 
       {selected && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title={selected.nombre} onClose={() => setSelected(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-start bg-[var(--field)]">
               <div>
@@ -359,11 +360,11 @@ export default function InventarioView() {
               </div>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {agregar && (
-        <div className="fixed inset-0 bg-[var(--overlay)]/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <Modal title="Agregar Stock" onClose={() => setAgregar(null)}>
           <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-md flex flex-col overflow-hidden">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-start bg-[var(--field)]">
               <div>
@@ -425,7 +426,7 @@ export default function InventarioView() {
               </button>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
