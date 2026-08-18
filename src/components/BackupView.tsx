@@ -58,7 +58,7 @@ export default function BackupView({ corredorId }: BackupViewProps) {
       try {
         const texto = await file.text();
         const parsed = JSON.parse(texto) as Record<string, unknown[]>;
-        if (!parsed._meta) throw new Error('El archivo no parece un backup de DANPA MADERAS.');
+        if (!parsed._meta) throw new Error('El archivo no parece un backup de Servicios Integrales.');
         if (!window.confirm('Esto actualizará los datos con el contenido del backup. ¿Continuar?')) return;
         const res = await restaurarBackup(corredorId, parsed);
         setResultado(res);

@@ -41,7 +41,7 @@ export async function generarPDFInforme(d: DatosInformeEscrito, secciones: Secci
   doc.setTextColor(255, 255, 255);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(16);
-  doc.text('DANPA MADERAS', margin, 12);
+  doc.text('Servicios Integrales', margin, 12);
   doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
   doc.text(`Informe mensual · ${d.rango.etiqueta}`, margin, 19);
@@ -189,7 +189,7 @@ export async function generarPDFInforme(d: DatosInformeEscrito, secciones: Secci
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
-    doc.text(`DANPA MADERAS · Informe ${d.rango.etiqueta} · Página ${i} de ${total}`, pageW / 2, 291, {
+    doc.text(`Servicios Integrales · Informe ${d.rango.etiqueta} · Página ${i} de ${total}`, pageW / 2, 291, {
       align: 'center',
     });
   }

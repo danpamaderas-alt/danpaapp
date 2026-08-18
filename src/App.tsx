@@ -314,7 +314,7 @@ export default function App() {
       >
         <div className="px-6 py-8 flex items-start justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-white tracking-tight">DANPA MADERAS</h1>
+            <h1 className="text-3xl font-bold text-white tracking-tight">Servicios Integrales</h1>
             <p className="text-[var(--muted)] text-xs font-medium mt-1">Venta de Maderas</p>
           </div>
           <button
@@ -395,7 +395,7 @@ export default function App() {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <h1 className="text-lg font-bold text-white tracking-tight">DANPA MADERAS</h1>
+            <h1 className="text-lg font-bold text-white tracking-tight">Servicios Integrales</h1>
           </div>
 
           <div className="relative">

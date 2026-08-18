@@ -67,7 +67,7 @@ export default function Login() {
     <div className="min-h-screen bg-[var(--bg)] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[var(--text)] tracking-tight">DANPA MADERAS</h1>
+          <h1 className="text-3xl font-bold text-[var(--text)] tracking-tight">Servicios Integrales</h1>
           <p className="text-[var(--text2)] text-sm mt-1">Venta de Maderas</p>
         </div>
 
