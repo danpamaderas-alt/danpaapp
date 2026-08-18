@@ -26,7 +26,7 @@ export const TODAS_SECCIONES: SeccionesInforme = {
 };
 
 export async function generarPDFInforme(d: DatosInformeEscrito, secciones: SeccionesInforme = TODAS_SECCIONES): Promise<void> {
-  const [{ jsPDF }, { autoTable }] = await Promise.all([
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
   ]);
