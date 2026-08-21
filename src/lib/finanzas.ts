@@ -36,6 +36,7 @@ export const CATEGORIAS = [
   'produccion',
   'comisiones',
   'sueldos',
+  'contratistas',
   'impuestos',
   'otros',
 ];

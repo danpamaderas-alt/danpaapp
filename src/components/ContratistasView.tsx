@@ -1,4 +1,5 @@
 import { Modal } from './Modal';
+import ContratistasInforme from './ContratistasInforme';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dinero, hoyISO, getErrorMessage } from '../lib/format';
 import {
@@ -10,14 +11,21 @@ import {
   crearTrabajo,
   actualizarTrabajo,
   eliminarTrabajo,
+  fetchEventos,
+  registrarEvento,
+  fetchPagos,
+  crearPago,
+  eliminarPago,
   TIPOS_TARIFA,
   ESTADOS_TRABAJO,
   etiquetaEstadoTrabajo,
   claseEstadoTrabajo,
   type Contratista,
   type TrabajoContratista,
+  type EventoContratista,
+  type PagoContratista,
 } from '../lib/contratistas';
-import { crearMovimiento } from '../lib/finanzas';
+import { crearMovimiento, OPCIONES_CUENTA } from '../lib/finanzas';
 import {
   UsersRound,
   HardHat,
@@ -29,17 +37,20 @@ import {
   X,
   CheckCircle2,
   Wallet,
-  Banknote,
   Clock,
   MapPin,
   Briefcase,
+  FileBarChart2,
+  HandCoins,
+  Scissors,
 } from 'lucide-react';
 
-type Tab = 'contratistas' | 'trabajos';
+type Tab = 'contratistas' | 'trabajos' | 'informe';
 
 const TAB_OPTIONS: { id: Tab; label: string; Icon: typeof UsersRound }[] = [
   { id: 'contratistas', label: 'Contratistas', Icon: UsersRound },
   { id: 'trabajos', label: 'Trabajos', Icon: HardHat },
+  { id: 'informe', label: 'Informe y historial', Icon: FileBarChart2 },
 ];
 
 interface ContratistaForm {
@@ -72,6 +83,9 @@ interface TrabajoForm {
   costo: string;
   estado: string;
   fecha_pago: string;
+  nro_contrato: string;
+  nro_remito: string;
+  cantidad_arboles: string;
   notas: string;
 }
 
@@ -83,6 +97,9 @@ const emptyTrabajoForm = (): TrabajoForm => ({
   costo: '',
   estado: 'pendiente',
   fecha_pago: '',
+  nro_contrato: '',
+  nro_remito: '',
+  cantidad_arboles: '',
   notas: '',
 });
 
@@ -96,12 +113,34 @@ const formatearTarifa = (tipo: string, tarifa: number) => {
 };
 
 export default function ContratistasView({ corredorId }: { corredorId: string }) {
-  const [tab, setTab] = useState<Tab>('contratistas');
+  const [tab, setTab] = useState<Tab>(() => {
+    try {
+      const guardada = localStorage.getItem('danpa_contratistas_tab');
+      if (guardada === 'trabajos' || guardada === 'informe') return guardada;
+    } catch {
+      // ignore
+    }
+    return 'contratistas';
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem('danpa_contratistas_tab', tab);
+    } catch {
+      // ignore
+    }
+  }, [tab]);
+
   const [contratistas, setContratistas] = useState<Contratista[]>([]);
   const [trabajos, setTrabajos] = useState<TrabajoContratista[]>([]);
+  const [eventos, setEventos] = useState<EventoContratista[]>([]);
+  const [pagos, setPagos] = useState<PagoContratista[]>([]);
+
+  const [modalPago, setModalPago] = useState<TrabajoContratista | null>(null);
+  const [pagoForm, setPagoForm] = useState({ monto: '', fecha: hoyISO(), metodo: '', notas: '' });
+  const [guardandoPago, setGuardandoPago] = useState(false);
 
   const [modal, setModal] = useState(false);
   const [editando, setEditando] = useState<string | null>(null);
@@ -114,16 +153,26 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
 
   const contratistaPorId = useMemo(() => Object.fromEntries(contratistas.map((c) => [c.id, c])), [contratistas]);
 
+  const pagadoPorTrabajo = useMemo(() => {
+    const mapa: Record<string, number> = {};
+    for (const p of pagos) mapa[p.trabajo_id] = (mapa[p.trabajo_id] || 0) + p.monto;
+    return mapa;
+  }, [pagos]);
+
   const cargarTodo = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const [cons, trabs] = await Promise.all([
+      const [cons, trabs, evs, pgs] = await Promise.all([
         fetchContratistas(corredorId),
         fetchTrabajos(corredorId),
+        fetchEventos(corredorId),
+        fetchPagos(corredorId),
       ]);
       setContratistas(cons);
       setTrabajos(trabs);
+      setEventos(evs);
+      setPagos(pgs);
     } catch (err: any) {
       console.error(err);
       setError(getErrorMessage(err, 'Error al cargar Subcontratados.'));
@@ -140,7 +189,23 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
     try {
       setError(null);
       if (t === 'contratistas') setContratistas(await fetchContratistas(corredorId));
-      if (t === 'trabajos') setTrabajos(await fetchTrabajos(corredorId));
+      if (t === 'trabajos') {
+        const [trabs, pgs] = await Promise.all([fetchTrabajos(corredorId), fetchPagos(corredorId)]);
+        setTrabajos(trabs);
+        setPagos(pgs);
+      }
+      if (t === 'informe') {
+        const [cons, trabs, evs, pgs] = await Promise.all([
+          fetchContratistas(corredorId),
+          fetchTrabajos(corredorId),
+          fetchEventos(corredorId),
+          fetchPagos(corredorId),
+        ]);
+        setContratistas(cons);
+        setTrabajos(trabs);
+        setEventos(evs);
+        setPagos(pgs);
+      }
     } catch (err: any) {
       console.error(err);
       setError(getErrorMessage(err, 'Error al actualizar.'));
@@ -181,6 +246,9 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
         costo: String(tr.costo ?? 0),
         estado: tr.estado,
         fecha_pago: tr.fecha_pago || '',
+        nro_contrato: tr.nro_contrato || '',
+        nro_remito: tr.nro_remito || '',
+        cantidad_arboles: tr.cantidad_arboles != null ? String(tr.cantidad_arboles) : '',
         notas: tr.notas || '',
       });
     }
@@ -209,8 +277,20 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
         };
         if (editando) {
           await actualizarContratista(editando, payload);
+          await registrarEvento({
+            corredor_id: corredorId,
+            contratista_id: editando,
+            tipo: 'edicion',
+            descripcion: `Se actualizaron los datos de ${payload.nombre}.`,
+          });
         } else {
-          await crearContratista({ corredor_id: corredorId, ...payload });
+          const creado = await crearContratista({ corredor_id: corredorId, ...payload });
+          await registrarEvento({
+            corredor_id: corredorId,
+            contratista_id: creado.id,
+            tipo: 'creacion',
+            descripcion: `Se registró al contratista ${creado.nombre}${creado.especialidad ? ` (${creado.especialidad})` : ''}.`,
+          });
         }
       }
 
@@ -236,6 +316,7 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
           setGuardando(false);
           return;
         }
+        const arboles = traForm.cantidad_arboles.trim() ? Math.max(0, Math.floor(Number(traForm.cantidad_arboles) || 0)) : null;
         const payload = {
           contratista_id: traForm.contratista_id,
           descripcion: traForm.descripcion.trim(),
@@ -244,12 +325,40 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
           costo,
           estado: traForm.estado,
           fecha_pago: traForm.fecha_pago || undefined,
+          nro_contrato: traForm.nro_contrato.trim() || undefined,
+          nro_remito: traForm.nro_remito.trim() || undefined,
+          cantidad_arboles: arboles,
           notas: traForm.notas.trim() || undefined,
         };
         if (editando) {
           await actualizarTrabajo(editando, payload);
+          await registrarEvento({
+            corredor_id: corredorId,
+            contratista_id: payload.contratista_id,
+            trabajo_id: editando,
+            tipo: 'edicion',
+            descripcion: `Se editó el trabajo "${payload.descripcion}" (${dinero(costo)}).`,
+          });
+          if (payload.estado === 'pagado') {
+            const existente = trabajos.find((x) => x.id === editando);
+            const pagado = pagadoPorTrabajo[editando] || 0;
+            const saldo = costo - pagado;
+            if (existente && saldo > 0.009) {
+              await registrarPagoEfectuado({ ...existente, costo }, saldo, payload.fecha_pago || hoyISO(), '', '', pagos);
+            }
+          }
         } else {
-          await crearTrabajo({ corredor_id: corredorId, ...payload });
+          const creado = await crearTrabajo({ corredor_id: corredorId, ...payload });
+          await registrarEvento({
+            corredor_id: corredorId,
+            contratista_id: creado.contratista_id,
+            trabajo_id: creado.id,
+            tipo: 'creacion',
+            descripcion: `Nuevo trabajo "${creado.descripcion}" por ${dinero(creado.costo)}${creado.nro_contrato ? `, contrato ${creado.nro_contrato}` : ''}${creado.nro_remito ? `, remito ${creado.nro_remito}` : ''}${creado.cantidad_arboles ? `, ${creado.cantidad_arboles} ${creado.cantidad_arboles === 1 ? 'árbol podado' : 'árboles podados'}` : ''}.`,
+          });
+          if (creado.estado === 'pagado') {
+            await registrarPagoEfectuado(creado, costo, payload.fecha_pago || hoyISO(), '', '', pagos);
+          }
         }
       }
 
@@ -268,8 +377,21 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
     setOcupadoId(confirmarEliminar.id);
     setError(null);
     try {
-      if (confirmarEliminar.tab === 'contratistas') await eliminarContratista(confirmarEliminar.id);
-      if (confirmarEliminar.tab === 'trabajos') await eliminarTrabajo(confirmarEliminar.id);
+      if (confirmarEliminar.tab === 'contratistas') {
+        await eliminarContratista(confirmarEliminar.id);
+      }
+      if (confirmarEliminar.tab === 'trabajos') {
+        const tr = trabajos.find((x) => x.id === confirmarEliminar.id);
+        await eliminarTrabajo(confirmarEliminar.id);
+        if (tr) {
+          await registrarEvento({
+            corredor_id: corredorId,
+            contratista_id: tr.contratista_id,
+            tipo: 'eliminado',
+            descripcion: `Se eliminó el trabajo "${tr.descripcion}" (${dinero(tr.costo)}).`,
+          });
+        }
+      }
       setConfirmarEliminar(null);
       await cargarTodo();
     } catch (err: any) {
@@ -280,30 +402,118 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
     }
   };
 
-  const marcarTrabajoPagado = async (tr: TrabajoContratista) => {
-    setOcupadoId(tr.id);
+  const recalcularEstado = async (trabajoId: string, listaPagos: PagoContratista[]) => {
+    const tr = trabajos.find((x) => x.id === trabajoId);
+    if (!tr) return;
+    const pagado = listaPagos.filter((p) => p.trabajo_id === trabajoId).reduce((a, p) => a + p.monto, 0);
+    let estado = 'pendiente';
+    if (tr.costo > 0 && pagado >= tr.costo - 0.009) estado = 'pagado';
+    else if (pagado > 0) estado = 'parcial';
+    await actualizarTrabajo(trabajoId, { estado, fecha_pago: estado === 'pagado' ? hoyISO() : null });
+  };
+
+  const registrarPagoEfectuado = async (
+    tr: TrabajoContratista,
+    monto: number,
+    fecha: string,
+    metodo: string,
+    notas: string,
+    listaPagosActual: PagoContratista[]
+  ) => {
+    const con = contratistaPorId[tr.contratista_id];
+    const pagadoAntes = listaPagosActual.filter((p) => p.trabajo_id === tr.id).reduce((a, p) => a + p.monto, 0);
+    const quedaSaldo = pagadoAntes + monto < tr.costo - 0.009;
+    const nuevoPago = await crearPago({
+      corredor_id: corredorId,
+      contratista_id: tr.contratista_id,
+      trabajo_id: tr.id,
+      monto,
+      fecha,
+      metodo: metodo || undefined,
+      notas: notas || undefined,
+    });
+    try {
+      await crearMovimiento({
+        corredor_id: corredorId,
+        tipo: 'egreso',
+        concepto: `Subcontratado: ${con?.nombre || 'contratista'} - ${tr.descripcion}${quedaSaldo ? ' (pago parcial)' : ''}`,
+        monto,
+        categoria: 'contratistas',
+        fecha,
+        notas: `${notas || ''}${metodo ? ` · Medio: ${metodo}` : ''}${tr.nro_remito ? ` · Remito ${tr.nro_remito}` : ''}${tr.nro_contrato ? ` · Contrato ${tr.nro_contrato}` : ''}`.trim(),
+      });
+    } catch (mErr: any) {
+      console.error('No se pudo registrar el egreso:', mErr);
+      setError(`El pago se registró, pero no se pudo crear el egreso en Centro financiero: ${getErrorMessage(mErr)}`);
+    }
+    await registrarEvento({
+      corredor_id: corredorId,
+      contratista_id: tr.contratista_id,
+      trabajo_id: tr.id,
+      tipo: 'pago',
+      descripcion: `${quedaSaldo ? 'Pago parcial' : 'Pago final'} de "${tr.descripcion}"${tr.nro_remito ? ` (remito ${tr.nro_remito})` : ''}.`,
+      monto,
+    });
+    await recalcularEstado(tr.id, [...listaPagosActual, nuevoPago]);
+  };
+
+  const abrirModalPago = (tr: TrabajoContratista) => {
+    const saldo = Math.max(0, tr.costo - (pagadoPorTrabajo[tr.id] || 0));
+    setPagoForm({ monto: saldo ? String(saldo) : '', fecha: hoyISO(), metodo: '', notas: '' });
+    setModalPago(tr);
+  };
+
+  const guardarPago = async () => {
+    if (!modalPago) return;
+    const saldo = Math.max(0, modalPago.costo - (pagadoPorTrabajo[modalPago.id] || 0));
+    const monto = Number(pagoForm.monto) || 0;
+    if (monto <= 0) {
+      alert('El monto debe ser mayor a 0.');
+      return;
+    }
+    if (monto > saldo + 0.009) {
+      alert(`El monto supera el saldo pendiente (${dinero(saldo)}).`);
+      return;
+    }
+    if (!pagoForm.fecha) {
+      alert('Elegí la fecha del pago.');
+      return;
+    }
+    setGuardandoPago(true);
     setError(null);
     try {
-      const fecha = hoyISO();
-      await actualizarTrabajo(tr.id, { estado: 'pagado', fecha_pago: fecha });
-      const con = contratistaPorId[tr.contratista_id];
-      try {
-        await crearMovimiento({
-          corredor_id: corredorId,
-          tipo: 'egreso',
-          concepto: `Subcontratado: ${con?.nombre || 'contratista'} - ${tr.descripcion}`,
-          monto: tr.costo,
-          categoria: 'otros',
-          fecha,
-          notas: 'Trabajo de contratista',
-        });
-      } catch (mErr: any) {
-        console.error('No se pudo registrar el egreso:', mErr);
-      }
+      await registrarPagoEfectuado(modalPago, monto, pagoForm.fecha, pagoForm.metodo.trim(), pagoForm.notas.trim(), pagos);
+      setModalPago(null);
       await cargarTab('trabajos');
     } catch (err: any) {
       console.error(err);
-      setError(getErrorMessage(err, 'Error al marcar como pagado.'));
+      setError(getErrorMessage(err, 'Error al registrar el pago.'));
+    } finally {
+      setGuardandoPago(false);
+    }
+  };
+
+  const anularPago = async (pago: PagoContratista) => {
+    if (!window.confirm(`¿Anular el pago de ${dinero(pago.monto)} del ${pago.fecha}? Se recalcula el estado del trabajo.`)) return;
+    setOcupadoId(pago.id);
+    setError(null);
+    try {
+      const restantes = pagos.filter((p) => p.id !== pago.id);
+      await eliminarPago(pago.id);
+      const tr = trabajos.find((x) => x.id === pago.trabajo_id);
+      await registrarEvento({
+        corredor_id: corredorId,
+        contratista_id: pago.contratista_id,
+        trabajo_id: pago.trabajo_id,
+        tipo: 'nota',
+        descripcion: `Se anuló un pago de ${dinero(pago.monto)}${tr ? ` del trabajo "${tr.descripcion}"` : ''}.`,
+      });
+      setPagos(restantes);
+      if (tr) await recalcularEstado(tr.id, restantes);
+      await cargarTab('trabajos');
+    } catch (err: any) {
+      console.error(err);
+      setError(getErrorMessage(err, 'Error al anular el pago.'));
     } finally {
       setOcupadoId(null);
     }
@@ -322,24 +532,27 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
   }, [contratistas]);
 
   const kpisTrabajos = useMemo(() => {
-    const pendientes = trabajos.filter((t) => t.estado === 'pendiente');
-    const pagados = trabajos.filter((t) => t.estado === 'pagado');
+    const conSaldo = trabajos.filter((t) => t.estado !== 'pagado');
+    const totalPagado = trabajos.reduce((a, t) => a + Math.min(pagadoPorTrabajo[t.id] || 0, t.costo), 0);
+    const totalPendiente = trabajos.reduce((a, t) => a + Math.max(0, t.costo - (pagadoPorTrabajo[t.id] || 0)), 0);
     return [
       { label: 'Trabajos', valor: String(trabajos.length), Icon: HardHat, fondo: 'bg-[var(--blue-soft)]', iconColor: 'text-[var(--text)]' },
-      { label: 'Pendientes', valor: String(pendientes.length), Icon: Clock, fondo: 'bg-[var(--amber-soft2)]', iconColor: 'text-[var(--amber-text2)]' },
-      { label: 'Pendiente $', valor: dinero(pendientes.reduce((a, t) => a + t.costo, 0)), Icon: Wallet, fondo: 'bg-[var(--amber-soft)]', iconColor: 'text-[var(--amber-text3)]' },
-      { label: 'Pagado $', valor: dinero(pagados.reduce((a, t) => a + t.costo, 0)), Icon: CheckCircle2, fondo: 'bg-[var(--primary-soft)]', iconColor: 'text-[var(--primary-deep)]' },
+      { label: 'Con saldo pendiente', valor: String(conSaldo.length), Icon: Clock, fondo: 'bg-[var(--amber-soft2)]', iconColor: 'text-[var(--amber-text2)]' },
+      { label: 'Pendiente $', valor: dinero(totalPendiente), Icon: Wallet, fondo: 'bg-[var(--amber-soft)]', iconColor: 'text-[var(--amber-text3)]' },
+      { label: 'Pagado $', valor: dinero(totalPagado), Icon: CheckCircle2, fondo: 'bg-[var(--primary-soft)]', iconColor: 'text-[var(--primary-deep)]' },
     ];
-  }, [trabajos]);
+  }, [trabajos, pagadoPorTrabajo]);
 
-  const kpis = tab === 'contratistas' ? kpisContratistas : kpisTrabajos;
+  const kpis = tab === 'contratistas' ? kpisContratistas : tab === 'trabajos' ? kpisTrabajos : [];
 
-  const tituloTab = tab === 'contratistas' ? 'Contratistas' : 'Trabajos';
+  const tituloTab = tab === 'contratistas' ? 'Contratistas' : tab === 'trabajos' ? 'Trabajos' : 'Informe y historial';
 
   const descripcionTab =
     tab === 'contratistas'
       ? 'Personal subcontratado para tareas específicas.'
-      : 'Tareas puntuales realizadas por contratistas y su pago.';
+      : tab === 'trabajos'
+        ? 'Tareas puntuales realizadas por contratistas y su pago.'
+        : 'Pagos por contratista, contratos, remitos e historial de eventos.';
 
   const nombreContratista = (id: string) => contratistaPorId[id]?.nombre || '—';
 
@@ -350,13 +563,15 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Subcontratados</h2>
           <p className="text-[var(--text2)] mt-1">{descripcionTab}</p>
         </div>
-        <button
-          onClick={() => abrirNuevo()}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors"
-        >
-          <UserPlus className="w-4 h-4" />
-          Nuevo {tab === 'contratistas' ? 'contratista' : 'trabajo'}
-        </button>
+        {tab !== 'informe' && (
+          <button
+            onClick={() => abrirNuevo()}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Nuevo {tab === 'contratistas' ? 'contratista' : 'trabajo'}
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-8">
@@ -391,6 +606,14 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
           <Loader2 className="w-8 h-8 animate-spin mb-4 text-[var(--primary)]" />
           <p>Cargando Subcontratados...</p>
         </div>
+      ) : tab === 'informe' ? (
+        <ContratistasInforme
+          contratistas={contratistas}
+          trabajos={trabajos}
+          eventos={eventos}
+          pagos={pagos}
+          onAnularPago={anularPago}
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
@@ -485,22 +708,40 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
                           {t.lugar}
                         </p>
                       )}
+                      {(t.nro_contrato || t.nro_remito) && (
+                        <p className="text-xs text-[var(--text2)] truncate">
+                          {t.nro_contrato ? `Contrato ${t.nro_contrato}` : ''}{t.nro_contrato && t.nro_remito ? ' · ' : ''}{t.nro_remito ? `Remito ${t.nro_remito}` : ''}
+                        </p>
+                      )}
+                      {t.cantidad_arboles != null && t.cantidad_arboles > 0 && (
+                        <p className="text-xs text-[var(--primary-deep)] font-semibold flex items-center gap-1">
+                          <Scissors className="w-3 h-3" />
+                          {t.cantidad_arboles} {t.cantidad_arboles === 1 ? 'árbol podado' : 'árboles podados'}
+                        </p>
+                      )}
                     </div>
                     <p className="text-[var(--text2)] text-sm hidden md:block">{t.fecha}</p>
-                    <p className="text-[var(--text)] text-sm font-medium">{dinero(t.costo)}</p>
+                    <div>
+                      <p className="text-[var(--text)] text-sm font-medium">{dinero(t.costo)}</p>
+                      {(pagadoPorTrabajo[t.id] || 0) > 0 && (
+                        <p className="text-xs text-[var(--primary-deep)] font-semibold">
+                          Pagado {dinero(Math.min(pagadoPorTrabajo[t.id] || 0, t.costo))}
+                        </p>
+                      )}
+                    </div>
                     <span className={`justify-self-start text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded ${claseEstadoTrabajo(t.estado)}`}>
                       {etiquetaEstadoTrabajo(t.estado)}
                     </span>
                     <p className="text-[var(--text2)] text-sm hidden md:block">{t.fecha_pago || '—'}</p>
                     <div className="flex items-center justify-end gap-2">
-                      {t.estado === 'pendiente' && (
+                      {t.estado !== 'pagado' && (
                         <button
-                          onClick={() => marcarTrabajoPagado(t)}
+                          onClick={() => abrirModalPago(t)}
                           disabled={ocupadoId === t.id}
-                          title="Marcar como pagado"
+                          title="Registrar pago (total o parcial)"
                           className="p-2 rounded-lg border border-[var(--primary)] text-[var(--primary)] hover:bg-[var(--primary-soft)] transition-colors disabled:opacity-60"
                         >
-                          {ocupadoId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
+                          {ocupadoId === t.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <HandCoins className="w-4 h-4" />}
                         </button>
                       )}
                       <button
@@ -700,6 +941,39 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
                       />
                     </div>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">N° de contrato</label>
+                      <input
+                        type="text"
+                        value={traForm.nro_contrato}
+                        onChange={(e) => setTraForm({ ...traForm, nro_contrato: e.target.value })}
+                        placeholder="Ej: CT-2026-014"
+                        className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">N° de remito</label>
+                      <input
+                        type="text"
+                        value={traForm.nro_remito}
+                        onChange={(e) => setTraForm({ ...traForm, nro_remito: e.target.value })}
+                        placeholder="Ej: R-0001-00012345"
+                        className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Árboles podados</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={traForm.cantidad_arboles}
+                        onChange={(e) => setTraForm({ ...traForm, cantidad_arboles: e.target.value })}
+                        placeholder="0"
+                        className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                      />
+                    </div>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
                       <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Costo *</label>
@@ -765,6 +1039,120 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
                 >
                   {guardando && <Loader2 className="w-4 h-4 animate-spin" />}
                   Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {modalPago && (
+        <Modal title="Registrar pago" onClose={() => setModalPago(null)}>
+          <div className="bg-[var(--surface)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center bg-[var(--field)]">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[var(--primary-soft)] rounded-lg">
+                  <HandCoins className="w-5 h-5 text-[var(--primary-deep)]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-[var(--text)]">Registrar pago</h3>
+                  <p className="text-xs text-[var(--text2)] truncate max-w-[240px]">
+                    {nombreContratista(modalPago.contratista_id)} · {modalPago.descripcion}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setModalPago(null)}
+                className="text-[var(--text2)] hover:text-[var(--text)] hover:bg-[var(--hover)] p-2 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 pt-5 pb-1 grid grid-cols-3 gap-3 text-center">
+              <div className="bg-[var(--field)] rounded-lg p-3">
+                <p className="text-[10px] font-semibold text-[var(--text2)] uppercase tracking-wider">Costo</p>
+                <p className="text-sm font-bold text-[var(--text)] mt-1">{dinero(modalPago.costo)}</p>
+              </div>
+              <div className="bg-[var(--field)] rounded-lg p-3">
+                <p className="text-[10px] font-semibold text-[var(--text2)] uppercase tracking-wider">Pagado</p>
+                <p className="text-sm font-bold text-[var(--primary-deep)] mt-1">{dinero(Math.min(pagadoPorTrabajo[modalPago.id] || 0, modalPago.costo))}</p>
+              </div>
+              <div className="bg-[var(--amber-soft2)] rounded-lg p-3">
+                <p className="text-[10px] font-semibold text-[var(--amber-text2)] uppercase tracking-wider">Saldo</p>
+                <p className="text-sm font-bold text-[var(--amber-text2)] mt-1">
+                  {dinero(Math.max(0, modalPago.costo - (pagadoPorTrabajo[modalPago.id] || 0)))}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Monto a pagar *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={pagoForm.monto}
+                    onChange={(e) => setPagoForm({ ...pagoForm, monto: e.target.value })}
+                    placeholder="0"
+                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                  />
+                  <p className="text-xs text-[var(--text2)]">Podés pagar todo o una parte (pago parcial).</p>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Fecha del pago *</label>
+                  <input
+                    type="date"
+                    value={pagoForm.fecha}
+                    onChange={(e) => setPagoForm({ ...pagoForm, fecha: e.target.value })}
+                    className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Medio de pago</label>
+                <select
+                  value={pagoForm.metodo}
+                  onChange={(e) => setPagoForm({ ...pagoForm, metodo: e.target.value })}
+                  className="w-full h-12 px-4 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                >
+                  <option value="">Sin especificar</option>
+                  {OPCIONES_CUENTA.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-[var(--text2)] uppercase tracking-wider">Notas</label>
+                <textarea
+                  value={pagoForm.notas}
+                  onChange={(e) => setPagoForm({ ...pagoForm, notas: e.target.value })}
+                  rows={2}
+                  placeholder="Observaciones del pago..."
+                  className="w-full p-3 rounded-lg border border-[var(--border)] focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent bg-[var(--field)]"
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3 border-t border-[var(--border)]">
+                <button
+                  type="button"
+                  onClick={() => setModalPago(null)}
+                  className="px-5 py-2.5 text-[var(--text2)] font-medium hover:bg-[var(--blue-header)] rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={guardarPago}
+                  disabled={guardandoPago}
+                  className="px-5 py-2.5 bg-[var(--primary)] text-white font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors flex items-center gap-2 disabled:opacity-60"
+                >
+                  {guardandoPago && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Registrar pago
                 </button>
               </div>
             </div>

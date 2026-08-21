@@ -953,6 +953,9 @@ export interface Database {
           costo: number;
           estado: string;
           fecha_pago: string | null;
+          nro_contrato: string | null;
+          nro_remito: string | null;
+          cantidad_arboles: number | null;
           notas: string | null;
           created_at: string;
         };
@@ -966,6 +969,9 @@ export interface Database {
           costo?: number;
           estado?: string;
           fecha_pago?: string | null;
+          nro_contrato?: string | null;
+          nro_remito?: string | null;
+          cantidad_arboles?: number | null;
           notas?: string | null;
           created_at?: string;
         };
@@ -979,6 +985,9 @@ export interface Database {
           costo?: number;
           estado?: string;
           fecha_pago?: string | null;
+          nro_contrato?: string | null;
+          nro_remito?: string | null;
+          cantidad_arboles?: number | null;
           notas?: string | null;
           created_at?: string;
         };
@@ -995,6 +1004,122 @@ export interface Database {
             columns: ['contratista_id'];
             isOneToOne: false;
             referencedRelation: 'contratistas';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      contratista_pagos: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          contratista_id: string;
+          trabajo_id: string;
+          monto: number;
+          fecha: string;
+          metodo: string | null;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          contratista_id: string;
+          trabajo_id: string;
+          monto: number;
+          fecha?: string;
+          metodo?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          contratista_id?: string;
+          trabajo_id?: string;
+          monto?: number;
+          fecha?: string;
+          metodo?: string | null;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'contratista_pagos_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contratista_pagos_contratista_id_fkey';
+            columns: ['contratista_id'];
+            isOneToOne: false;
+            referencedRelation: 'contratistas';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contratista_pagos_trabajo_id_fkey';
+            columns: ['trabajo_id'];
+            isOneToOne: false;
+            referencedRelation: 'contratista_trabajos';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      contratista_eventos: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          contratista_id: string;
+          trabajo_id: string | null;
+          tipo: string;
+          descripcion: string;
+          monto: number | null;
+          fecha: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          contratista_id: string;
+          trabajo_id?: string | null;
+          tipo?: string;
+          descripcion: string;
+          monto?: number | null;
+          fecha?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          contratista_id?: string;
+          trabajo_id?: string | null;
+          tipo?: string;
+          descripcion?: string;
+          monto?: number | null;
+          fecha?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'contratista_eventos_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contratista_eventos_contratista_id_fkey';
+            columns: ['contratista_id'];
+            isOneToOne: false;
+            referencedRelation: 'contratistas';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'contratista_eventos_trabajo_id_fkey';
+            columns: ['trabajo_id'];
+            isOneToOne: false;
+            referencedRelation: 'contratista_trabajos';
             referencedColumns: ['id'];
           }
         ];

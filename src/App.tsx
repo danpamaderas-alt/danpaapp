@@ -63,6 +63,18 @@ import type { Usuario } from './lib/corredor';
 
 type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh' | 'contratistas';
 
+const VISTAS: View[] = ['dashboard', 'productos', 'inventario', 'nuevoPedido', 'pedidos', 'clientes', 'finanzas', 'visitas', 'agenda', 'calendario', 'podas', 'informes', 'backup', 'usuarios', 'rrhh', 'contratistas'];
+
+function leerVistaGuardada(): View {
+  try {
+    const guardada = localStorage.getItem('maderas.vista');
+    if (guardada && VISTAS.includes(guardada as View)) return guardada as View;
+  } catch {
+    // ignore
+  }
+  return 'dashboard';
+}
+
 function FullLoader() {
   return (
     <div className="flex-1 flex items-center justify-center py-24 text-[var(--text)]">
@@ -77,7 +89,7 @@ export default function App() {
   const [corredor, setCorredor] = useState<Usuario | null>(null);
   const [perfilCargando, setPerfilCargando] = useState(false);
   const [perfilError, setPerfilError] = useState<string | null>(null);
-  const [currentView, setCurrentView] = useState<View>('dashboard');
+  const [currentView, setCurrentView] = useState<View>(leerVistaGuardada);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -108,14 +120,33 @@ export default function App() {
   }, [sidebarOpen]);
 
   useEffect(() => {
+    try {
+      localStorage.setItem('maderas.vista', currentView);
+    } catch {
+      // ignore
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    if (!corredor?.activo) return;
+    const esAdminLocal = corredor.perfil === 'admin';
+    const esGestionLocal = esAdminLocal || corredor.perfil === 'ventas';
+    const soloAdmin = ['usuarios', 'rrhh', 'contratistas'] as View[];
+    const soloGestion = ['productos', 'inventario', 'backup'] as View[];
+    if ((soloAdmin.includes(currentView) && !esAdminLocal) || (soloGestion.includes(currentView) && !esGestionLocal)) {
+      setCurrentView('dashboard');
+    }
+  }, [currentView, corredor]);
+
+  useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setAuthLoading(false);
     });
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
       setSession(next);
-      setCurrentView('dashboard');
+      if (event === 'SIGNED_OUT') setCurrentView('dashboard');
     });
 
     return () => sub.subscription.unsubscribe();

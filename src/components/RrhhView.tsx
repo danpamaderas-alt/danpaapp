@@ -1,4 +1,5 @@
 import { Modal } from './Modal';
+import SueldosInforme from './SueldosInforme';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { dinero, hoyISO, getErrorMessage } from '../lib/format';
 import {
@@ -49,9 +50,10 @@ import {
   Ban,
   CalendarDays,
   Briefcase,
+  FileBarChart2,
 } from 'lucide-react';
 
-type Tab = 'empleados' | 'asistencias' | 'licencias' | 'liquidaciones';
+type Tab = 'empleados' | 'asistencias' | 'licencias' | 'liquidaciones' | 'informe';
 
 type PlanillaRow = { id: string | null; estado: string; hora_entrada: string; hora_salida: string; horas_extra: string; notas: string };
 
@@ -72,6 +74,7 @@ const TAB_OPTIONS: { id: Tab; label: string; Icon: typeof Users }[] = [
   { id: 'asistencias', label: 'Asistencias', Icon: CalendarCheck2 },
   { id: 'licencias', label: 'Licencias', Icon: Plane },
   { id: 'liquidaciones', label: 'Liquidaciones', Icon: Banknote },
+  { id: 'informe', label: 'Informe de sueldos', Icon: FileBarChart2 },
 ];
 
 interface EmpleadoForm {
@@ -157,9 +160,25 @@ const emptyLiquidacionForm = (): LiquidacionForm => ({
 });
 
 export default function RrhhView({ corredorId }: { corredorId: string }) {
-  const [tab, setTab] = useState<Tab>('empleados');
+  const [tab, setTab] = useState<Tab>(() => {
+    try {
+      const guardada = localStorage.getItem('danpa_rrhh_tab');
+      if (guardada === 'asistencias' || guardada === 'licencias' || guardada === 'liquidaciones' || guardada === 'informe') return guardada;
+    } catch {
+      // ignore
+    }
+    return 'empleados';
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('danpa_rrhh_tab', tab);
+    } catch {
+      // ignore
+    }
+  }, [tab]);
 
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [asistencias, setAsistencias] = useState<Asistencia[]>([]);
@@ -626,7 +645,9 @@ export default function RrhhView({ corredorId }: { corredorId: string }) {
         ? 'Asistencias'
         : tab === 'licencias'
           ? 'Licencias y vacaciones'
-          : 'Liquidaciones de sueldo';
+          : tab === 'liquidaciones'
+            ? 'Liquidaciones de sueldo'
+            : 'Informe de sueldos';
 
   const descripcionTab =
     tab === 'empleados'
@@ -635,7 +656,9 @@ export default function RrhhView({ corredorId }: { corredorId: string }) {
         ? 'Registro diario de entrada, salida y estado.'
         : tab === 'licencias'
           ? 'Vacaciones, licencias y faltas justificadas.'
-          : 'Sueldos por período y registro del pago.';
+          : tab === 'liquidaciones'
+            ? 'Sueldos por período y registro del pago.'
+            : 'Detalle de pagos por empleado: a quién se le pagó, cuánto y cuándo.';
 
   const nombreEmpleado = (id: string) => empleadoPorId[id]?.nombre || '—';
 
@@ -646,13 +669,15 @@ export default function RrhhView({ corredorId }: { corredorId: string }) {
           <h2 className="text-2xl font-semibold text-[var(--text)] tracking-tight">Recursos Humanos</h2>
           <p className="text-[var(--text2)] mt-1">{descripcionTab}</p>
         </div>
-        <button
-          onClick={() => abrirNuevo()}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors"
-        >
-          <UserPlus className="w-4 h-4" />
-          Nuevo {tab === 'empleados' ? 'empleado' : tab === 'asistencias' ? 'registro' : tab === 'licencias' ? 'licencia' : 'liquidación'}
-        </button>
+        {tab !== 'informe' && (
+          <button
+            onClick={() => abrirNuevo()}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[var(--primary)] text-white font-medium rounded-lg hover:bg-[var(--primary-deep)] transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Nuevo {tab === 'empleados' ? 'empleado' : tab === 'asistencias' ? 'registro' : tab === 'licencias' ? 'licencia' : 'liquidación'}
+          </button>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 mb-8">
@@ -687,6 +712,13 @@ export default function RrhhView({ corredorId }: { corredorId: string }) {
           <Loader2 className="w-8 h-8 animate-spin mb-4 text-[var(--primary)]" />
           <p>Cargando Recursos Humanos...</p>
         </div>
+      ) : tab === 'informe' ? (
+        <SueldosInforme
+          empleados={empleados}
+          asistencias={asistencias}
+          licencias={licencias}
+          liquidaciones={liquidaciones}
+        />
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
