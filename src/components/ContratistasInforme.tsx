@@ -12,9 +12,11 @@ import {
   Briefcase,
   Trash2,
   Scissors,
+  Loader2,
 } from 'lucide-react';
 import { dinero, hoyISO } from '../lib/format';
 import { descargarTexto } from '../lib/informes';
+import { generarPDFInformeContratistas } from '../lib/pdf';
 import {
   etiquetaEstadoTrabajo,
   claseEstadoTrabajo,
@@ -63,6 +65,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
   const [contratistaFiltro, setContratistaFiltro] = useState(() => leerPref(CLAVE_CONTRATISTA));
   const [desde, setDesde] = useState(() => leerPref(CLAVE_DESDE) || `${new Date().getFullYear()}-01-01`);
   const [hasta, setHasta] = useState(() => leerPref(CLAVE_HASTA) || hoyISO());
+  const [pdfEnCurso, setPdfEnCurso] = useState(false);
 
   const cambiarContratista = (v: string) => {
     setContratistaFiltro(v);
@@ -261,6 +264,25 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
 
   const hayDatos = traFiltrados.length > 0 || evFiltrados.length > 0 || pagosFiltrados.length > 0;
 
+  const exportarPDF = async () => {
+    setPdfEnCurso(true);
+    try {
+      await generarPDFInformeContratistas({
+        desde,
+        hasta,
+        nombreFiltro: contratistaFiltro ? nombreContratista[contratistaFiltro] || '' : '',
+        trabajos: traFiltrados,
+        pagos: pagosFiltrados,
+        eventos: evFiltrados,
+        nombres: nombreContratista,
+      });
+    } catch {
+      alert('No se pudo generar el PDF del informe.');
+    } finally {
+      setPdfEnCurso(false);
+    }
+  };
+
   return (
     <>
       <div className="no-print bg-[var(--surface)] border border-[var(--border)] rounded-xl p-6 mb-8 flex flex-col lg:flex-row lg:items-end gap-4">
@@ -305,6 +327,14 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
           >
             <FileDown className="w-4 h-4" />
             CSV
+          </button>
+          <button
+            onClick={exportarPDF}
+            disabled={!hayDatos || pdfEnCurso}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-[var(--border)] text-sm font-medium hover:bg-[var(--field)] transition-colors disabled:opacity-50"
+          >
+            {pdfEnCurso ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+            PDF
           </button>
           <button
             onClick={() => window.print()}
