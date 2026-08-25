@@ -14,6 +14,8 @@ type FiltrosMovimientos = {
 
 export type MovimientoInput = {
   corredor_id: string;
+  /** Opcional: se deriva del signo del monto si no se indica (egreso = monto negativo). */
+  tipo?: 'ingreso' | 'egreso';
   concepto: string;
   /** Positivo = ingreso, negativo = egreso. */
   monto: number;
@@ -51,7 +53,7 @@ export const OPCIONES_CUENTA = [
 export async function fetchMovimientos(filtros: FiltrosMovimientos): Promise<Movimiento[]> {
   let query = supabase
     .from('movimientos')
-    .select('id, corredor_id, concepto, monto, categoria, fecha, notas, creado_por, pagador, cuenta, tiene_factura, nro_factura')
+    .select('id, corredor_id, tipo, concepto, monto, categoria, fecha, notas, creado_por, pagador, cuenta, tiene_factura, nro_factura')
     .eq('corredor_id', filtros.corredorId)
     .order('fecha', { ascending: false })
     .limit(500);
@@ -68,10 +70,12 @@ export async function fetchMovimientos(filtros: FiltrosMovimientos): Promise<Mov
 }
 
 export async function crearMovimiento(input: MovimientoInput): Promise<Movimiento> {
+  const tipo = input.tipo || (input.monto < 0 ? 'egreso' : 'ingreso');
   const { data, error } = await supabase
     .from('movimientos')
     .insert({
       corredor_id: input.corredor_id,
+      tipo,
       concepto: input.concepto,
       monto: input.monto,
       categoria: input.categoria,
@@ -91,7 +95,11 @@ export async function crearMovimiento(input: MovimientoInput): Promise<Movimient
 }
 
 export async function actualizarMovimiento(id: string, patch: Partial<MovimientoInput>): Promise<void> {
-  const { error } = await supabase.from('movimientos').update(patch).eq('id', id);
+  const payload: Partial<MovimientoInput> = { ...patch };
+  if (!payload.tipo && payload.monto !== undefined) {
+    payload.tipo = payload.monto < 0 ? 'egreso' : 'ingreso';
+  }
+  const { error } = await supabase.from('movimientos').update(payload).eq('id', id);
   if (error) throw new Error(getErrorMessage(error));
 }
 

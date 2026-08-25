@@ -14,30 +14,24 @@ export interface Database {
           id: string;
           email: string;
           nombre: string;
-          apellido: string | null;
           perfil: string;
           activo: boolean;
-          corredor_id: string | null;
           created_at: string;
         };
         Insert: {
           id: string;
           email: string;
           nombre: string;
-          apellido?: string | null;
           perfil?: string;
           activo?: boolean;
-          corredor_id?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
           email?: string;
           nombre?: string;
-          apellido?: string | null;
           perfil?: string;
           activo?: boolean;
-          corredor_id?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -45,7 +39,6 @@ export interface Database {
       productos: {
         Row: {
           id: string;
-          corredor_id: string | null;
           nombre: string;
           descripcion: string | null;
           precio: number;
@@ -62,12 +55,10 @@ export interface Database {
           costo_almacenamiento: number;
           costo_comision: number;
           costo_otros: number;
-          notas: string | null;
           created_at: string;
         };
         Insert: {
           id?: string;
-          corredor_id?: string | null;
           nombre: string;
           descripcion?: string | null;
           precio?: number;
@@ -84,12 +75,10 @@ export interface Database {
           costo_almacenamiento?: number;
           costo_comision?: number;
           costo_otros?: number;
-          notas?: string | null;
           created_at?: string;
         };
         Update: {
           id?: string;
-          corredor_id?: string | null;
           nombre?: string;
           descripcion?: string | null;
           precio?: number;
@@ -106,7 +95,6 @@ export interface Database {
           costo_almacenamiento?: number;
           costo_comision?: number;
           costo_otros?: number;
-          notas?: string | null;
           created_at?: string;
         };
         Relationships: [
@@ -326,6 +314,7 @@ export interface Database {
         Row: {
           id: string;
           corredor_id: string;
+          tipo: string;
           concepto: string;
           monto: number;
           categoria: string;
@@ -342,6 +331,7 @@ export interface Database {
         Insert: {
           id?: string;
           corredor_id: string;
+          tipo?: string;
           concepto: string;
           monto?: number;
           categoria?: string;
@@ -358,6 +348,7 @@ export interface Database {
         Update: {
           id?: string;
           corredor_id?: string;
+          tipo?: string;
           concepto?: string;
           monto?: number;
           categoria?: string;
@@ -964,7 +955,7 @@ export interface Database {
           fecha_pago: string | null;
           nro_contrato: string | null;
           nro_remito: string | null;
-          arboles: number | null;
+          cantidad_arboles: number | null;
           notas: string | null;
           created_at: string;
         };
@@ -980,7 +971,7 @@ export interface Database {
           fecha_pago?: string | null;
           nro_contrato?: string | null;
           nro_remito?: string | null;
-          arboles?: number | null;
+          cantidad_arboles?: number | null;
           notas?: string | null;
           created_at?: string;
         };
@@ -996,7 +987,7 @@ export interface Database {
           fecha_pago?: string | null;
           nro_contrato?: string | null;
           nro_remito?: string | null;
-          arboles?: number | null;
+          cantidad_arboles?: number | null;
           notas?: string | null;
           created_at?: string;
         };
@@ -1025,7 +1016,7 @@ export interface Database {
           trabajo_id: string;
           monto: number;
           fecha: string;
-          medio_pago: string | null;
+          metodo: string | null;
           notas: string | null;
           created_at: string;
         };
@@ -1036,7 +1027,7 @@ export interface Database {
           trabajo_id: string;
           monto: number;
           fecha?: string;
-          medio_pago?: string | null;
+          metodo?: string | null;
           notas?: string | null;
           created_at?: string;
         };
@@ -1047,7 +1038,7 @@ export interface Database {
           trabajo_id?: string;
           monto?: number;
           fecha?: string;
-          medio_pago?: string | null;
+          metodo?: string | null;
           notas?: string | null;
           created_at?: string;
         };

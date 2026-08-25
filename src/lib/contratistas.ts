@@ -3,17 +3,9 @@ import { getErrorMessage } from './format';
 import type { Database } from '../types';
 
 export type Contratista = Database['public']['Tables']['contratistas']['Row'];
-/** En tmiaef la columna es `arboles`; se expone como `cantidad_arboles` para la UI. */
-export type TrabajoContratista = Omit<
-  Database['public']['Tables']['contratista_trabajos']['Row'],
-  'arboles'
-> & { cantidad_arboles: number | null };
+export type TrabajoContratista = Database['public']['Tables']['contratista_trabajos']['Row'];
 export type EventoContratista = Database['public']['Tables']['contratista_eventos']['Row'];
-/** En tmiaef la columna es `medio_pago`; se expone como `metodo` para la UI. */
-export type PagoContratista = Omit<
-  Database['public']['Tables']['contratista_pagos']['Row'],
-  'medio_pago'
-> & { metodo: string | null };
+export type PagoContratista = Database['public']['Tables']['contratista_pagos']['Row'];
 
 export type ContratistaInput = {
   corredor_id: string;
@@ -121,7 +113,7 @@ export async function fetchTrabajos(
 ): Promise<TrabajoContratista[]> {
   let query = supabase
     .from('contratista_trabajos')
-    .select('id, contratista_id, descripcion, lugar, fecha, costo, estado, fecha_pago, nro_contrato, nro_remito, cantidad_arboles:arboles, notas')
+    .select('id, contratista_id, descripcion, lugar, fecha, costo, estado, fecha_pago, nro_contrato, nro_remito, cantidad_arboles, notas')
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
     .limit(500);
@@ -131,7 +123,7 @@ export async function fetchTrabajos(
   if (filtros.estado) query = query.eq('estado', filtros.estado);
   const { data, error } = await query;
   if (error) throw error;
-  return (data as unknown as TrabajoContratista[]) || [];
+  return (data as TrabajoContratista[]) || [];
 }
 
 export async function crearTrabajo(input: TrabajoContratistaInput): Promise<TrabajoContratista> {
@@ -148,7 +140,7 @@ export async function crearTrabajo(input: TrabajoContratistaInput): Promise<Trab
       fecha_pago: input.fecha_pago || null,
       nro_contrato: input.nro_contrato || null,
       nro_remito: input.nro_remito || null,
-      arboles: input.cantidad_arboles ?? null,
+      cantidad_arboles: input.cantidad_arboles ?? null,
       notas: input.notas || null,
     })
     .select()
@@ -158,10 +150,7 @@ export async function crearTrabajo(input: TrabajoContratistaInput): Promise<Trab
 }
 
 export async function actualizarTrabajo(id: string, patch: Partial<TrabajoContratistaInput>): Promise<void> {
-  const { cantidad_arboles, ...resto } = patch;
-  const payload: Database['public']['Tables']['contratista_trabajos']['Update'] = { ...resto };
-  if (cantidad_arboles !== undefined) payload.arboles = cantidad_arboles;
-  const { error } = await supabase.from('contratista_trabajos').update(payload).eq('id', id);
+  const { error } = await supabase.from('contratista_trabajos').update(patch).eq('id', id);
   if (error) throw new Error(getErrorMessage(error));
 }
 
@@ -226,7 +215,7 @@ export async function fetchPagos(
 ): Promise<PagoContratista[]> {
   let query = supabase
     .from('contratista_pagos')
-    .select('id, contratista_id, trabajo_id, monto, fecha, metodo:medio_pago, notas, created_at')
+    .select('id, contratista_id, trabajo_id, monto, fecha, metodo, notas, created_at')
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false })
@@ -235,7 +224,7 @@ export async function fetchPagos(
   if (filtros.trabajoId) query = query.eq('trabajo_id', filtros.trabajoId);
   const { data, error } = await query;
   if (error) throw error;
-  return (data as unknown as PagoContratista[]) || [];
+  return (data as PagoContratista[]) || [];
 }
 
 export type PagoContratistaInput = {
@@ -257,7 +246,7 @@ export async function crearPago(input: PagoContratistaInput): Promise<PagoContra
       trabajo_id: input.trabajo_id,
       monto: input.monto,
       fecha: input.fecha || undefined,
-      medio_pago: input.metodo || null,
+      metodo: input.metodo || null,
       notas: input.notas || null,
     })
     .select()
