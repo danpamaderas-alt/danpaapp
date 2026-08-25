@@ -153,7 +153,7 @@ export async function generarPDFInforme(d: DatosInformeEscrito, secciones: Secci
               m.fecha,
               m.concepto,
               etiquetaCat(m.categoria),
-              `${m.tipo === 'ingreso' ? '+' : '-'}${ARS(m.monto)}`,
+              `${m.monto >= 0 ? '+' : '-'}${ARS(Math.abs(m.monto))}`,
             ]),
       styles: { fontSize: 8.5, cellPadding: 2.2 },
       headStyles: { fillColor: [AZUL_OSCURO[0], AZUL_OSCURO[1], AZUL_OSCURO[2]], textColor: 255, fontStyle: 'bold' },

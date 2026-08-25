@@ -14,8 +14,8 @@ type FiltrosMovimientos = {
 
 export type MovimientoInput = {
   corredor_id: string;
-  tipo: 'ingreso' | 'egreso';
   concepto: string;
+  /** Positivo = ingreso, negativo = egreso. */
   monto: number;
   categoria: string;
   fecha: string;
@@ -28,17 +28,12 @@ export type MovimientoInput = {
 };
 
 export const CATEGORIAS = [
-  'general',
-  'ventas',
-  'compras',
-  'materia_prima',
-  'logistica',
-  'produccion',
-  'comisiones',
-  'sueldos',
-  'contratistas',
-  'impuestos',
-  'otros',
+  'General',
+  'Ventas',
+  'Compras',
+  'Sueldos',
+  'Contratistas',
+  'Otros',
 ];
 
 // Opciones de los desplegables. Si aparece "Otro..." en el formulario
@@ -56,14 +51,15 @@ export const OPCIONES_CUENTA = [
 export async function fetchMovimientos(filtros: FiltrosMovimientos): Promise<Movimiento[]> {
   let query = supabase
     .from('movimientos')
-    .select('id, corredor_id, tipo, concepto, monto, categoria, fecha, notas, creado_por, pagador, cuenta, tiene_factura, nro_factura')
+    .select('id, corredor_id, concepto, monto, categoria, fecha, notas, creado_por, pagador, cuenta, tiene_factura, nro_factura')
     .eq('corredor_id', filtros.corredorId)
     .order('fecha', { ascending: false })
     .limit(500);
 
   if (filtros.desde) query = query.gte('fecha', filtros.desde);
   if (filtros.hasta) query = query.lte('fecha', filtros.hasta);
-  if (filtros.tipo) query = query.eq('tipo', filtros.tipo);
+  if (filtros.tipo === 'ingreso') query = query.gte('monto', 0);
+  if (filtros.tipo === 'egreso') query = query.lt('monto', 0);
   if (filtros.categoria) query = query.eq('categoria', filtros.categoria);
 
   const { data, error } = await query;
@@ -76,7 +72,6 @@ export async function crearMovimiento(input: MovimientoInput): Promise<Movimient
     .from('movimientos')
     .insert({
       corredor_id: input.corredor_id,
-      tipo: input.tipo,
       concepto: input.concepto,
       monto: input.monto,
       categoria: input.categoria,
@@ -153,18 +148,18 @@ export async function eliminarOpcion(
 }
 
 export function calcularSaldo(lista: Movimiento[]): number {
-  return lista.reduce(
-    (acc, m) => (m.tipo === 'ingreso' ? acc + m.monto : acc - m.monto),
-    0
-  );
+  return lista.reduce((acc, m) => acc + m.monto, 0);
 }
+
+/** Helper: true si el movimiento es un ingreso (monto >= 0). */
+export const esIngreso = (m: Movimiento): boolean => m.monto >= 0;
 
 export function desglosePorCategoria(lista: Movimiento[]) {
   const mapa = new Map<string, { categoria: string; ingreso: number; egreso: number }>();
   for (const m of lista) {
     const actual = mapa.get(m.categoria) || { categoria: m.categoria, ingreso: 0, egreso: 0 };
-    if (m.tipo === 'ingreso') actual.ingreso += m.monto;
-    else actual.egreso += m.monto;
+    if (esIngreso(m)) actual.ingreso += m.monto;
+    else actual.egreso += Math.abs(m.monto);
     mapa.set(m.categoria, actual);
   }
   return Array.from(mapa.values()).sort((a, b) => b.egreso - a.egreso);

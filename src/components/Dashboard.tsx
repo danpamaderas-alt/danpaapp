@@ -83,7 +83,7 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
             .order('fecha', { ascending: true, nullsFirst: true }),
           supabase
             .from('movimientos')
-            .select('id, tipo, concepto, monto, categoria, fecha')
+            .select('id, concepto, monto, categoria, fecha')
             .eq('corredor_id', corredorId)
             .order('fecha', { ascending: false })
             .limit(500),
@@ -126,11 +126,11 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
   const stockBajo = productos.filter((p) => p.activo && p.stock <= (p.stock_minimo || 0));
 
   const ingresos = movimientos
-    .filter((m) => m.tipo === 'ingreso')
+    .filter((m) => m.monto >= 0)
     .reduce((acc, m) => acc + (m.monto || 0), 0);
   const egresos = movimientos
-    .filter((m) => m.tipo === 'egreso')
-    .reduce((acc, m) => acc + (m.monto || 0), 0);
+    .filter((m) => m.monto < 0)
+    .reduce((acc, m) => acc + Math.abs(m.monto || 0), 0);
   const saldo = calcularSaldo(movimientos);
 
   const inicioDia = (d: Date) => {

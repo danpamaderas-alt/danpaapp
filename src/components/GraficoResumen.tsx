@@ -26,13 +26,15 @@ export function BarrasMensuales({ movimientos }: { movimientos: Movimiento[] }) 
       const key = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`;
       const mes = lista.find((x) => x.key === key);
       if (!mes) continue;
-      if (m.tipo === 'ingreso') mes.ingreso += m.monto;
-      else mes.egreso += m.monto;
+      if (m.monto >= 0) mes.ingreso += m.monto;
+      else mes.egreso += Math.abs(m.monto);
     }
     return lista;
   }, [movimientos]);
 
-  const max = Math.max(1, ...meses.map((m) => Math.max(m.ingreso, m.egreso)));
+  const max = meses.length > 0
+  ? Math.max(1, ...meses.map((m) => Math.max(m.ingreso, m.egreso)))
+  : 1;
 
   return (
     <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] p-6">
@@ -83,8 +85,8 @@ export function DonutIngresosEgresos({ movimientos }: { movimientos: Movimiento[
     let ing = 0;
     let egr = 0;
     for (const m of movimientos) {
-      if (m.tipo === 'ingreso') ing += m.monto;
-      else egr += m.monto;
+      if (m.monto >= 0) ing += m.monto;
+      else egr += Math.abs(m.monto);
     }
     return { ingresos: ing, egresos: egr, saldo: ing - egr };
   }, [movimientos]);

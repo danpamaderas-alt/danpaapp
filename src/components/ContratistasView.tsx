@@ -435,10 +435,9 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
     try {
       await crearMovimiento({
         corredor_id: corredorId,
-        tipo: 'egreso',
         concepto: `Subcontratado: ${con?.nombre || 'contratista'} - ${tr.descripcion}${quedaSaldo ? ' (pago parcial)' : ''}`,
-        monto,
-        categoria: 'contratistas',
+        monto: -Math.abs(monto),
+        categoria: 'Contratistas',
         fecha,
         notas: `${notas || ''}${metodo ? ` · Medio: ${metodo}` : ''}${tr.nro_remito ? ` · Remito ${tr.nro_remito}` : ''}${tr.nro_contrato ? ` · Contrato ${tr.nro_contrato}` : ''}`.trim(),
       });
