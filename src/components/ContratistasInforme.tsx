@@ -97,6 +97,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
   const evFiltrados = useMemo(
     () =>
       eventos
+        .filter((e) => e.tipo !== 'edicion')
         .filter((e) => !contratistaFiltro || e.contratista_id === contratistaFiltro)
         .filter((e) => enRango(e.fecha, desde, hasta))
         .sort((a, b) => (b.created_at || b.fecha).localeCompare(a.created_at || a.fecha)),
