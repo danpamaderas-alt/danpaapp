@@ -16,6 +16,9 @@ import {
   fetchPagos,
   crearPago,
   eliminarPago,
+  LIMITES,
+  revertirEgresoDePago,
+  eliminarEventosDeContratista,
   TIPOS_TARIFA,
   ESTADOS_TRABAJO,
   etiquetaEstadoTrabajo,
@@ -331,6 +334,20 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
           notas: traForm.notas.trim() || undefined,
         };
         if (editando) {
+          const previo = trabajos.find((x) => x.id === editando);
+          if (
+            previo &&
+            payload.contratista_id !== previo.contratista_id &&
+            (pagadoPorTrabajo[editando] || 0) > 0.009
+          ) {
+            const ok = window.confirm(
+              'Este trabajo tiene pagos registrados. Al cambiarle el contratista, los pagos existentes seguirán figurando a nombre del contratista anterior en los informes históricos. ¿Continuar igual?'
+            );
+            if (!ok) {
+              setGuardando(false);
+              return;
+            }
+          }
           await actualizarTrabajo(editando, payload);
           await registrarEvento({
             corredor_id: corredorId,
@@ -376,19 +393,63 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
     if (!confirmarEliminar) return;
     setOcupadoId(confirmarEliminar.id);
     setError(null);
+    const revertirPagos = async (lista: PagoContratista[]) => {
+      for (const pg of lista) {
+        await eliminarPago(pg.id);
+        try {
+          await revertirEgresoDePago(corredorId, pg, conceptosEgresoDePago(pg));
+        } catch (revErr: any) {
+          console.error('No se pudo revertir el egreso del pago:', revErr);
+        }
+      }
+    };
     try {
       if (confirmarEliminar.tab === 'contratistas') {
+        const con = contratistas.find((c) => c.id === confirmarEliminar.id);
+        const trs = trabajos.filter((t) => t.contratista_id === confirmarEliminar.id);
+        const pgs = pagos.filter((p) => p.contratista_id === confirmarEliminar.id);
+        if (trs.length > 0 || pgs.length > 0) {
+          const totalPgs = pgs.reduce((a, p) => a + p.monto, 0);
+          const ok = window.confirm(
+            `${con?.nombre || 'Este contratista'} tiene ${trs.length} trabajo(s) y ${pgs.length} pago(s) por ${dinero(totalPgs)}.\n\nSe eliminarán junto con su historial y se revertirán los egresos de los pagos en Centro financiero. Esta acción no se puede deshacer. ¿Continuar?`
+          );
+          if (!ok) {
+            setOcupadoId(null);
+            return;
+          }
+          await revertirPagos(pgs);
+          for (const t of trs) await eliminarTrabajo(t.id);
+        }
+        try {
+          await eliminarEventosDeContratista(corredorId, confirmarEliminar.id);
+        } catch (evErr: any) {
+          console.error('No se pudieron eliminar los eventos del contratista:', evErr);
+        }
         await eliminarContratista(confirmarEliminar.id);
       }
       if (confirmarEliminar.tab === 'trabajos') {
         const tr = trabajos.find((x) => x.id === confirmarEliminar.id);
+        const pagosDelTrabajo = pagos.filter((p) => p.trabajo_id === confirmarEliminar.id);
+        if (pagosDelTrabajo.length > 0) {
+          const totalPgs = pagosDelTrabajo.reduce((a, p) => a + p.monto, 0);
+          const ok = window.confirm(
+            `Este trabajo tiene ${pagosDelTrabajo.length} pago(s) por ${dinero(totalPgs)}. Al eliminarlo se anulan esos pagos y se revierten sus egresos en Centro financiero. ¿Continuar?`
+          );
+          if (!ok) {
+            setOcupadoId(null);
+            return;
+          }
+          await revertirPagos(pagosDelTrabajo);
+        }
         await eliminarTrabajo(confirmarEliminar.id);
         if (tr) {
           await registrarEvento({
             corredor_id: corredorId,
             contratista_id: tr.contratista_id,
             tipo: 'eliminado',
-            descripcion: `Se eliminó el trabajo "${tr.descripcion}" (${dinero(tr.costo)}).`,
+            descripcion: `Se eliminó el trabajo "${tr.descripcion}" (${dinero(tr.costo)})${
+              pagosDelTrabajo.length ? `, anulando sus ${pagosDelTrabajo.length} pago(s)` : ''
+            }.`,
           });
         }
       }
@@ -405,11 +466,22 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
   const recalcularEstado = async (trabajoId: string, listaPagos: PagoContratista[]) => {
     const tr = trabajos.find((x) => x.id === trabajoId);
     if (!tr) return;
-    const pagado = listaPagos.filter((p) => p.trabajo_id === trabajoId).reduce((a, p) => a + p.monto, 0);
+    const pagosDelTrabajo = listaPagos.filter((p) => p.trabajo_id === trabajoId);
+    const pagado = pagosDelTrabajo.reduce((a, p) => a + p.monto, 0);
     let estado = 'pendiente';
     if (tr.costo > 0 && pagado >= tr.costo - 0.009) estado = 'pagado';
     else if (pagado > 0) estado = 'parcial';
-    await actualizarTrabajo(trabajoId, { estado, fecha_pago: estado === 'pagado' ? hoyISO() : null });
+    const ultimaFechaPago = pagosDelTrabajo.map((p) => p.fecha).sort().slice(-1)[0];
+    await actualizarTrabajo(trabajoId, { estado, fecha_pago: estado === 'pagado' ? ultimaFechaPago || hoyISO() : null });
+  };
+
+  /** Conceptos posibles del egreso creado para un pago (fallback sin marcador). */
+  const conceptosEgresoDePago = (pago: PagoContratista): string[] => {
+    const tr = trabajos.find((x) => x.id === pago.trabajo_id);
+    if (!tr) return [];
+    const con = contratistaPorId[tr.contratista_id];
+    const base = `${con?.nombre || 'contratista'} - ${tr.descripcion}`;
+    return [`Subcontratado: ${base}`, `Subcontratado: ${base} (pago parcial)`];
   };
 
   const registrarPagoEfectuado = async (
@@ -439,7 +511,7 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
         monto: -Math.abs(monto),
         categoria: 'Contratistas',
         fecha,
-        notas: `${notas || ''}${metodo ? ` · Medio: ${metodo}` : ''}${tr.nro_remito ? ` · Remito ${tr.nro_remito}` : ''}${tr.nro_contrato ? ` · Contrato ${tr.nro_contrato}` : ''}`.trim(),
+        notas: `${notas || ''}${metodo ? ` · Medio: ${metodo}` : ''}${tr.nro_remito ? ` · Remito ${tr.nro_remito}` : ''}${tr.nro_contrato ? ` · Contrato ${tr.nro_contrato}` : ''} [pago:${nuevoPago.id}]`.trim(),
       });
     } catch (mErr: any) {
       console.error('No se pudo registrar el egreso:', mErr);
@@ -481,7 +553,14 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
     setGuardandoPago(true);
     setError(null);
     try {
-      await registrarPagoEfectuado(modalPago, monto, pagoForm.fecha, pagoForm.metodo.trim(), pagoForm.notas.trim(), pagos);
+      const pagosFrescos = await fetchPagos(corredorId, { trabajoId: modalPago.id });
+      const pagadoFresco = pagosFrescos.reduce((a, p) => a + p.monto, 0);
+      const saldoFresco = Math.max(0, modalPago.costo - pagadoFresco);
+      if (monto > saldoFresco + 0.009) {
+        alert(`El saldo cambió: quedan ${dinero(saldoFresco)} pendientes para este trabajo.`);
+        return;
+      }
+      await registrarPagoEfectuado(modalPago, monto, pagoForm.fecha, pagoForm.metodo.trim(), pagoForm.notas.trim(), pagosFrescos);
       setModalPago(null);
       await cargarTab('trabajos');
     } catch (err: any) {
@@ -493,19 +572,34 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
   };
 
   const anularPago = async (pago: PagoContratista) => {
-    if (!window.confirm(`¿Anular el pago de ${dinero(pago.monto)} del ${pago.fecha}? Se recalcula el estado del trabajo.`)) return;
+    if (
+      !window.confirm(
+        `¿Anular el pago de ${dinero(pago.monto)} del ${pago.fecha}? Se recalcula el estado del trabajo y se revierte el egreso en Centro financiero.`
+      )
+    )
+      return;
     setOcupadoId(pago.id);
     setError(null);
     try {
       const restantes = pagos.filter((p) => p.id !== pago.id);
       await eliminarPago(pago.id);
+      let egresoRevertido = false;
+      try {
+        egresoRevertido = await revertirEgresoDePago(corredorId, pago, conceptosEgresoDePago(pago));
+      } catch (revErr: any) {
+        console.error('No se pudo revertir el egreso:', revErr);
+      }
       const tr = trabajos.find((x) => x.id === pago.trabajo_id);
       await registrarEvento({
         corredor_id: corredorId,
         contratista_id: pago.contratista_id,
         trabajo_id: pago.trabajo_id,
         tipo: 'nota',
-        descripcion: `Se anuló un pago de ${dinero(pago.monto)}${tr ? ` del trabajo "${tr.descripcion}"` : ''}.`,
+        descripcion: `Se anuló un pago de ${dinero(pago.monto)}${tr ? ` del trabajo "${tr.descripcion}"` : ''}.${
+          egresoRevertido
+            ? ' Se revirtió el egreso asociado en Centro financiero.'
+            : ' No se encontró el egreso asociado en Centro financiero; revisar manualmente.'
+        }`,
       });
       setPagos(restantes);
       if (tr) await recalcularEstado(tr.id, restantes);
@@ -541,6 +635,8 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
       { label: 'Pagado $', valor: dinero(totalPagado), Icon: CheckCircle2, fondo: 'bg-[var(--primary-soft)]', iconColor: 'text-[var(--primary-deep)]' },
     ];
   }, [trabajos, pagadoPorTrabajo]);
+
+  const datosTruncados = trabajos.length >= LIMITES.trabajos || pagos.length >= LIMITES.pagos;
 
   const kpis = tab === 'contratistas' ? kpisContratistas : tab === 'trabajos' ? kpisTrabajos : [];
 
@@ -597,6 +693,16 @@ export default function ContratistasView({ corredorId }: { corredorId: string })
         <div className="bg-[var(--danger-soft)] text-[var(--danger-deep)] p-4 rounded-xl flex items-start gap-4 mb-8">
           <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />
           <p className="text-sm">{error}</p>
+        </div>
+      )}
+
+      {datosTruncados && !loading && (
+        <div className="bg-[var(--amber-soft)] text-[var(--amber-text3)] p-4 rounded-xl flex items-start gap-4 mb-8">
+          <AlertCircle className="w-6 h-6 flex-shrink-0 mt-0.5" />
+          <p className="text-sm">
+            Hay muchos registros: se muestran los más recientes (hasta {LIMITES.trabajos.toLocaleString('es-AR')} trabajos y{' '}
+            {LIMITES.pagos.toLocaleString('es-AR')} pagos). Los saldos e informes podrían estar incompletos.
+          </p>
         </div>
       )}
 
