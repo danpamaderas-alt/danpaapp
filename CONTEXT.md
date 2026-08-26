@@ -16,7 +16,7 @@
 | Email | UUID | Password | Perfil |
 |-------|------|----------|--------|
 | danpamaderas@gmail.com | 16fcafca-0f5c-4cf5-abf8-7f7b81d7b45c | DanpaMaderas2026 | admin |
-| admin@danpa.com | 780b0936-9fcb-4b2c-9074-519613cc6b63 | Danpa2026! | admin |
+| admin@danpa.com | 780b0936-9fcb-4b2c-9074-519613cc6b63 | Danpa2026! | **master** (ve todo) |
 | caminosdelnorte84@gmail.com | 8fa85051-ea19-4073-aae1-ed1ffa4f1cb4 | Temporal2026! | ventas |
 
 ### Datos Cargados en tmiaef (verificados)
