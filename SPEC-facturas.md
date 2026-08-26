@@ -34,6 +34,13 @@ Agregar funcionalidad de generación de PDFs para pedidos, incluyendo:
 18. As a usuario, I want the PDF generation to work offline (client-side), so that I don't need internet to create documents
 19. As a usuario, I want the invoice number to be auto-generated from the order ID, so that it's unique
 20. As a usuario, I want to see both buttons (Factura and Remito) in the order detail, so that I can choose which document to generate
+21. As a usuario, I want to upload my company logo to appear on invoices, so that they look professional and branded
+22. As a usuario, I want the invoice to calculate IVA automatically, so that tax information is included
+23. As a usuario, I want to see the IVA breakdown (subtotal, IVA, total), so that the client understands the tax
+24. As a usuario, I want to configure the IVA percentage (0%, 21%, 10.5%), so that it matches my tax regime
+25. As a usuario, I want the logo to appear in the header next to the company name, so that the document is branded
+26. As a usuario, I want to remove or change the logo later, so that I can update my branding
+27. As a usuario, I want the IVA to be calculated before applying discounts, so that the tax base is correct
 
 ## Implementation Decisions
 
@@ -51,9 +58,8 @@ Agregar funcionalidad de generación de PDFs para pedidos, incluyendo:
 ### PDF Structure - Factura
 ```
 ┌─────────────────────────────────────┐
-│ SERVICIOS INTEGRALES                │
+│ [LOGO] SERVICIOS INTEGRALES         │
 │ Venta de maderas · Poda de árboles  │
-│ [Company info box]                  │
 ├─────────────────────────────────────┤
 │ FACTURA N° [auto-generated]         │
 │ Fecha: [order date]                 │
@@ -73,8 +79,9 @@ Agregar funcionalidad de generación de PDFs para pedidos, incluyendo:
 │ │  10 │ MADERITAS  │ $800 │ $8000 ││
 │ └─────┴────────────┴──────┴────────┘│
 │                      Subtotal: $8000│
+│                      IVA (21%): $1680│
 │                      Descuento: -$0 │
-│                      TOTAL: $8000   │
+│                      TOTAL: $9680   │
 ├─────────────────────────────────────┤
 │ Estado de pago: PAGADO / PENDIENTE  │
 │ Notas: [order notes]                │
@@ -119,8 +126,24 @@ interface ConfigEmpresa {
   direccion: string;
   telefono: string;
   email: string;
+  logo: string | null;  // base64 data URL o null
+  iva: number;          // porcentaje IVA (ej: 21)
 }
 ```
+
+### IVA Calculation
+- IVA se calcula sobre el subtotal (antes de descuento)
+- Se muestra desglose: Subtotal → IVA (21%) → Total con IVA
+- El descuento se aplica ANTES del IVA
+- Fórmula: `total = (subtotal - descuento) * (1 + iva/100)`
+- Si IVA = 0, no se muestra la línea de IVA
+
+### Logo
+- El usuario sube su logo (máximo 200KB, formatos: PNG, JPG, SVG)
+- Se guarda como base64 data URL en localStorage
+- Se muestra en el header del PDF, junto al nombre de la empresa
+- Tamaño máximo en PDF: 30mm de ancho × 15mm de alto
+- Si no hay logo, solo se muestra el nombre de la empresa
 
 ### UI Changes
 - In `MisPedidos.tsx` order detail modal: add two buttons below the status section
