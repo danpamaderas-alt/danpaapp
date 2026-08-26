@@ -26,6 +26,7 @@ import {
   Boxes,
   Wrench,
   FileSignature,
+  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -58,14 +59,15 @@ const UsuariosView = lazy(() => import('./components/UsuariosView'));
 const RrhhView = lazy(() => import('./components/RrhhView'));
 const ContratistasView = lazy(() => import('./components/ContratistasView'));
 const ContratosView = lazy(() => import('./components/ContratosView'));
+const RecibosView = lazy(() => import('./components/RecibosView'));
 const InventarioView = lazy(() => import('./components/InventarioView'));
 const Login = lazy(() => import('./components/Login'));
 import { fetchCorredorActual } from './lib/corredor';
 import type { Usuario } from './lib/corredor';
 
-type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh' | 'contratistas' | 'contratos';
+type View = 'dashboard' | 'productos' | 'inventario' | 'nuevoPedido' | 'pedidos' | 'clientes' | 'finanzas' | 'visitas' | 'agenda' | 'calendario' | 'podas' | 'informes' | 'backup' | 'usuarios' | 'rrhh' | 'contratistas' | 'contratos' | 'recibos';
 
-const VISTAS: View[] = ['dashboard', 'productos', 'inventario', 'nuevoPedido', 'pedidos', 'clientes', 'finanzas', 'visitas', 'agenda', 'calendario', 'podas', 'informes', 'backup', 'usuarios', 'rrhh', 'contratistas', 'contratos'];
+const VISTAS: View[] = ['dashboard', 'productos', 'inventario', 'nuevoPedido', 'pedidos', 'clientes', 'finanzas', 'visitas', 'agenda', 'calendario', 'podas', 'informes', 'backup', 'usuarios', 'rrhh', 'contratistas', 'contratos', 'recibos'];
 
 function leerVistaGuardada(): View {
   try {
@@ -325,6 +327,7 @@ export default function App() {
         ...(esAdmin ? [{ id: 'rrhh', label: 'Recursos Humanos', Icon: UsersRound }] : []),
         ...(esAdmin ? [{ id: 'contratistas', label: 'Subcontratados', Icon: Wrench }] : []),
         { id: 'contratos', label: 'Contratos', Icon: FileSignature },
+        { id: 'recibos', label: 'Recibos', Icon: Receipt },
         { id: 'finanzas', label: 'Finanzas', Icon: Wallet },
         { id: 'informes', label: 'Informes', Icon: BarChart3 },
         ...(esGestion ? [{ id: 'backup', label: 'Backup', Icon: Database }] : []),
@@ -499,6 +502,7 @@ export default function App() {
           {esAdmin && currentView === 'rrhh' && <RrhhView corredorId={corredorId} />}
           {esAdmin && currentView === 'contratistas' && <ContratistasView corredorId={corredorId} />}
           {currentView === 'contratos' && <ContratosView corredorId={corredorId} />}
+          {currentView === 'recibos' && <RecibosView corredorId={corredorId} />}
           {esGestion && currentView === 'productos' && <ProductosView />}
           {esGestion && currentView === 'inventario' && <InventarioView />}
           {currentView === 'nuevoPedido' && <NuevoPedido corredorId={corredorId} onSuccess={() => setCurrentView('pedidos')} />}

@@ -1186,6 +1186,53 @@ export interface Database {
           }
         ];
       };
+      recibos: {
+        Row: {
+          id: string;
+          created_at: string;
+          corredor_id: string;
+          nro_recibo: string | null;
+          fecha: string;
+          cliente_nombre: string;
+          cliente_domicilio: string | null;
+          cliente_cuit: string | null;
+          concepto: string;
+          monto: number;
+          forma_pago: string | null;
+          estado: string;
+          notas: string | null;
+        };
+        Insert: {
+          id?: string;
+          created_at?: string;
+          corredor_id: string;
+          nro_recibo?: string | null;
+          fecha?: string;
+          cliente_nombre: string;
+          cliente_domicilio?: string | null;
+          cliente_cuit?: string | null;
+          concepto: string;
+          monto?: number;
+          forma_pago?: string | null;
+          estado?: string;
+          notas?: string | null;
+        };
+        Update: {
+          id?: string;
+          created_at?: string;
+          corredor_id?: string;
+          nro_recibo?: string | null;
+          fecha?: string;
+          cliente_nombre?: string;
+          cliente_domicilio?: string | null;
+          cliente_cuit?: string | null;
+          concepto?: string;
+          monto?: number;
+          forma_pago?: string | null;
+          estado?: string;
+          notas?: string | null;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, { Args: any; Returns: any }>;
