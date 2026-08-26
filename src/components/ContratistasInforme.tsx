@@ -130,6 +130,12 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
     () => traFiltrados.reduce((a, t) => a + (t.cantidad_arboles || 0), 0),
     [traFiltrados]
   );
+  // Pendiente "al día": trabajos del período menos TODO lo pagado de cada uno
+  // (sin importar la fecha del pago), para no mezclar fechas de contrato y pago.
+  const pendienteAlDia = useMemo(
+    () => traFiltrados.reduce((a, t) => a + Math.max(0, t.costo - (pagadoPorTrabajoMap[t.id] || 0)), 0),
+    [traFiltrados, pagadoPorTrabajoMap]
+  );
 
   const eventosPorTipo = useMemo(() => {
     const conteo = new Map<string, number>();
@@ -141,11 +147,11 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
     return [
       { label: 'Total contratado', valor: dinero(totalContratado), Icon: HardHat, fondo: 'bg-[var(--blue-soft)]', iconColor: 'text-[var(--text)]' },
       { label: 'Total pagado', valor: dinero(totalPagado), Icon: CheckCircle2, fondo: 'bg-[var(--primary-soft)]', iconColor: 'text-[var(--primary-deep)]' },
-      { label: 'Pendiente de pago', valor: dinero(Math.max(0, totalContratado - totalPagado)), Icon: Clock, fondo: 'bg-[var(--amber-soft2)]', iconColor: 'text-[var(--amber-text2)]' },
+      { label: 'Pendiente de pago', valor: dinero(pendienteAlDia), Icon: Clock, fondo: 'bg-[var(--amber-soft2)]', iconColor: 'text-[var(--amber-text2)]' },
       { label: 'Árboles podados', valor: String(totalArboles), Icon: Scissors, fondo: 'bg-[var(--amber-soft3)]', iconColor: 'text-[var(--primary-deep)]' },
       { label: 'Trabajos / pagos', valor: `${traFiltrados.length} / ${pagosFiltrados.length}`, Icon: Wallet, fondo: 'bg-[var(--gray-soft)]', iconColor: 'text-[var(--text2)]' },
     ];
-  }, [totalContratado, totalPagado, totalArboles, traFiltrados, pagosFiltrados]);
+  }, [totalContratado, totalPagado, totalArboles, pendienteAlDia, traFiltrados, pagosFiltrados]);
 
   const resumenPorContratista = useMemo(() => {
     return contratistas
@@ -158,7 +164,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
           contratista: c,
           contratado,
           pagado,
-          pendiente: Math.max(0, contratado - pagado),
+          pendiente: liqs.reduce((a, t) => a + Math.max(0, t.costo - (pagadoPorTrabajoMap[t.id] || 0)), 0),
           cantidadTrabajos: liqs.length,
           cantidadPagos: pagosFiltrados.filter((p) => p.contratista_id === c.id).length,
           arboles: liqs.reduce((a, t) => a + (t.cantidad_arboles || 0), 0),
@@ -167,7 +173,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
       })
       .filter((r) => r.cantidadTrabajos > 0 || r.cantidadPagos > 0)
       .sort((a, b) => b.pagado - a.pagado || a.contratista.nombre.localeCompare(b.contratista.nombre));
-  }, [contratistas, traFiltrados, pagosFiltrados, evFiltrados, contratistaFiltro]);
+  }, [contratistas, traFiltrados, pagosFiltrados, evFiltrados, pagadoPorTrabajoMap, contratistaFiltro]);
 
   const informeProsa = useMemo(() => {
     if (!traFiltrados.length && !pagosFiltrados.length) {
@@ -208,7 +214,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
       }
       texto += '.';
     }
-    const pendiente = Math.max(0, totalContratado - totalPagado);
+    const pendiente = pendienteAlDia;
     if (pendiente > 0) {
       texto += ` Quedan ${dinero(pendiente)} pendientes de pago.`;
     } else if (traFiltrados.length > 0) {
@@ -218,7 +224,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
       texto += ` Se registraron ${evFiltrados.length} eventos en el historial.`;
     }
     return texto;
-  }, [traFiltrados, pagosFiltrados, evFiltrados, totalContratado, totalPagado, totalArboles, contratistaFiltro, nombreContratista]);
+  }, [traFiltrados, pagosFiltrados, evFiltrados, totalContratado, totalPagado, totalArboles, pendienteAlDia, contratistaFiltro, nombreContratista]);
 
   const exportarCSV = () => {
     const escapar = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -276,6 +282,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
         pagos: pagosFiltrados,
         eventos: evFiltrados,
         nombres: nombreContratista,
+        pagadoTotalPorTrabajo: pagadoPorTrabajoMap,
       });
     } catch {
       alert('No se pudo generar el PDF del informe.');
@@ -323,7 +330,7 @@ export default function ContratistasInforme({ contratistas, trabajos, eventos, p
         <div className="flex gap-3">
           <button
             onClick={exportarCSV}
-            disabled={!traFiltrados.length}
+            disabled={!hayDatos}
             className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-[var(--border)] text-sm font-medium hover:bg-[var(--field)] transition-colors disabled:opacity-50"
           >
             <FileDown className="w-4 h-4" />

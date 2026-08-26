@@ -105,6 +105,9 @@ export async function eliminarContratista(id: string): Promise<void> {
   if (error) throw new Error(getErrorMessage(error));
 }
 
+/** Límites de lectura por consulta; si se alcanzan, puede haber datos incompletos. */
+export const LIMITES = { trabajos: 2000, pagos: 5000 };
+
 // ---------------- Trabajos ----------------
 
 export async function fetchTrabajos(
@@ -116,7 +119,7 @@ export async function fetchTrabajos(
     .select('id, contratista_id, descripcion, lugar, fecha, costo, estado, fecha_pago, nro_contrato, nro_remito, cantidad_arboles, notas')
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
-    .limit(500);
+    .limit(LIMITES.trabajos);
   if (filtros.desde) query = query.gte('fecha', filtros.desde);
   if (filtros.hasta) query = query.lte('fecha', filtros.hasta);
   if (filtros.contratistaId) query = query.eq('contratista_id', filtros.contratistaId);
@@ -219,7 +222,7 @@ export async function fetchPagos(
     .eq('corredor_id', corredorId)
     .order('fecha', { ascending: false })
     .order('created_at', { ascending: false })
-    .limit(1000);
+    .limit(LIMITES.pagos);
   if (filtros.contratistaId) query = query.eq('contratista_id', filtros.contratistaId);
   if (filtros.trabajoId) query = query.eq('trabajo_id', filtros.trabajoId);
   const { data, error } = await query;
@@ -257,5 +260,47 @@ export async function crearPago(input: PagoContratistaInput): Promise<PagoContra
 
 export async function eliminarPago(id: string): Promise<void> {
   const { error } = await supabase.from('contratista_pagos').delete().eq('id', id);
+  if (error) throw new Error(getErrorMessage(error));
+}
+
+/**
+ * Busca y elimina el egreso que `registrarPagoEfectuado` creó en Centro
+ * financiero para este pago. Primero por referencia exacta (notas contienen
+ * el id del pago); como fallback, por concepto + fecha + monto.
+ * Devuelve true si encontró y eliminó el movimiento.
+ */
+export async function revertirEgresoDePago(
+  corredorId: string,
+  pago: Pick<PagoContratista, 'id' | 'monto' | 'fecha'>,
+  conceptosAlternativos: string[] = []
+): Promise<boolean> {
+  const montoNegativo = -Math.abs(pago.monto);
+  const { data, error } = await supabase
+    .from('movimientos')
+    .select('id, concepto, notas')
+    .eq('corredor_id', corredorId)
+    .eq('categoria', 'Contratistas')
+    .eq('monto', montoNegativo)
+    .order('created_at', { ascending: false })
+    .limit(50);
+  if (error) throw new Error(getErrorMessage(error));
+  const lista = data || [];
+  let objetivo = lista.find((m) => (m.notas || '').includes(pago.id));
+  if (!objetivo && conceptosAlternativos.length > 0) {
+    objetivo = lista.find((m) => conceptosAlternativos.includes(m.concepto));
+  }
+  if (!objetivo) return false;
+  const { error: errDel } = await supabase.from('movimientos').delete().eq('id', objetivo.id);
+  if (errDel) throw new Error(getErrorMessage(errDel));
+  return true;
+}
+
+/** Elimina todos los eventos de historial de un contratista (al borrarlo). */
+export async function eliminarEventosDeContratista(corredorId: string, contratistaId: string): Promise<void> {
+  const { error } = await supabase
+    .from('contratista_eventos')
+    .delete()
+    .eq('corredor_id', corredorId)
+    .eq('contratista_id', contratistaId);
   if (error) throw new Error(getErrorMessage(error));
 }

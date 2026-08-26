@@ -21,7 +21,7 @@ export function movimientosCSV(lista: Movimiento[]): string {
   const header = ['Fecha', 'Tipo', 'Concepto', 'Categoría', 'Monto', 'Quién pagó', 'Cuenta', 'Factura'];
   const filas = lista.map((m) => [
     m.fecha,
-    m.tipo === 'ingreso' ? 'Ingreso' : 'Egreso',
+    m.monto >= 0 ? 'Ingreso' : 'Egreso',
     m.concepto,
     m.categoria,
     m.monto,
@@ -79,8 +79,8 @@ const etiquetaCatTexto = (c: string) =>
 /** Genera un informe escrito en prosa (párrafos) resumiendo el mes. */
 export function informeEscrito(d: DatosInformeEscrito): string[] {
   const parrafos: string[] = [];
-  const nIng = d.movimientos.filter((m) => m.tipo === 'ingreso').length;
-  const nEgr = d.movimientos.filter((m) => m.tipo === 'egreso').length;
+  const nIng = d.movimientos.filter((m) => m.monto >= 0).length;
+  const nEgr = d.movimientos.filter((m) => m.monto < 0).length;
 
   parrafos.push(
     `Informe mensual de ${d.rango.etiqueta}. Durante el período se registraron ${d.movimientos.length} movimientos financieros: ` +

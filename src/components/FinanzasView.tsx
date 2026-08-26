@@ -57,7 +57,7 @@ const emptyForm = (): FormState => ({
   tipo: 'egreso',
   concepto: '',
   monto: '',
-  categoria: 'general',
+  categoria: 'General',
   fecha: hoyISO(),
   notas: '',
   pagador: '',
@@ -121,11 +121,11 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
 
   const saldo = useMemo(() => calcularSaldo(movimientos), [movimientos]);
   const ingresos = useMemo(
-    () => movimientos.filter((m) => m.tipo === 'ingreso').reduce((a, m) => a + m.monto, 0),
+    () => movimientos.filter((m) => m.monto >= 0).reduce((a, m) => a + m.monto, 0),
     [movimientos]
   );
   const egresos = useMemo(
-    () => movimientos.filter((m) => m.tipo === 'egreso').reduce((a, m) => a + m.monto, 0),
+    () => movimientos.filter((m) => m.monto < 0).reduce((a, m) => a + Math.abs(m.monto), 0),
     [movimientos]
   );
   const desglose = useMemo(() => desglosePorCategoria(movimientos), [movimientos]);
@@ -157,9 +157,9 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
   const abrirEdicion = (m: Movimiento) => {
     setForm({
       id: m.id,
-      tipo: (m.tipo === 'ingreso' ? 'ingreso' : 'egreso') as 'ingreso' | 'egreso',
+      tipo: (m.monto >= 0 ? 'ingreso' : 'egreso') as 'ingreso' | 'egreso',
       concepto: m.concepto,
-      monto: String(m.monto),
+      monto: String(Math.abs(m.monto)),
       categoria: m.categoria,
       fecha: m.fecha.slice(0, 10),
       notas: m.notas || '',
@@ -191,9 +191,8 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
     try {
       const input: MovimientoInput = {
         corredor_id: corredorId,
-        tipo: form.tipo,
         concepto: form.concepto.trim(),
-        monto,
+        monto: form.tipo === 'egreso' ? -Math.abs(monto) : Math.abs(monto),
         categoria: form.categoria,
         fecha: form.fecha,
         notas: form.notas.trim() || undefined,
@@ -473,7 +472,7 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
                       </tr>
                     ) : (
                       movimientos.map((m) => {
-                        const esIngreso = m.tipo === 'ingreso';
+                        const esIngreso = m.monto >= 0;
                         return (
                           <tr key={m.id} className="hover:bg-[var(--field)] transition-colors">
                             <td className="px-6 py-3.5 text-[var(--text2)] text-sm whitespace-nowrap">{formatDate(m.fecha)}</td>
@@ -509,7 +508,7 @@ export default function FinanzasView({ corredorId }: FinanzasViewProps) {
                               </span>
                             </td>
                             <td className={`px-6 py-3.5 text-right font-bold whitespace-nowrap ${esIngreso ? 'text-[var(--primary)]' : 'text-[var(--danger)]'}`}>
-                              {esIngreso ? '+' : '-'}{dinero(m.monto)}
+                              {esIngreso ? '+' : '-'}{dinero(Math.abs(m.monto))}
                             </td>
                             <td className="px-6 py-3.5 text-right whitespace-nowrap">
                               <button

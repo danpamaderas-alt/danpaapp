@@ -331,7 +331,7 @@ export interface Database {
         Insert: {
           id?: string;
           corredor_id: string;
-          tipo: string;
+          tipo?: string;
           concepto: string;
           monto?: number;
           categoria?: string;
@@ -1120,6 +1120,68 @@ export interface Database {
             columns: ['trabajo_id'];
             isOneToOne: false;
             referencedRelation: 'contratista_trabajos';
+            referencedColumns: ['id'];
+          }
+        ];
+      };
+      contratos: {
+        Row: {
+          id: string;
+          corredor_id: string;
+          tipo: string;
+          nro_contrato: string | null;
+          titulo: string;
+          contraparte: string | null;
+          descripcion: string | null;
+          lugar: string | null;
+          fecha: string;
+          fecha_fin: string | null;
+          monto: number;
+          forma_pago: string | null;
+          estado: string;
+          notas: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          corredor_id: string;
+          tipo?: string;
+          nro_contrato?: string | null;
+          titulo: string;
+          contraparte?: string | null;
+          descripcion?: string | null;
+          lugar?: string | null;
+          fecha?: string;
+          fecha_fin?: string | null;
+          monto?: number;
+          forma_pago?: string | null;
+          estado?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          corredor_id?: string;
+          tipo?: string;
+          nro_contrato?: string | null;
+          titulo?: string;
+          contraparte?: string | null;
+          descripcion?: string | null;
+          lugar?: string | null;
+          fecha?: string;
+          fecha_fin?: string | null;
+          monto?: number;
+          forma_pago?: string | null;
+          estado?: string;
+          notas?: string | null;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'contratos_corredor_id_fkey';
+            columns: ['corredor_id'];
+            isOneToOne: false;
+            referencedRelation: 'usuarios';
             referencedColumns: ['id'];
           }
         ];

@@ -153,7 +153,7 @@ export async function generarPDFInforme(d: DatosInformeEscrito, secciones: Secci
               m.fecha,
               m.concepto,
               etiquetaCat(m.categoria),
-              `${m.tipo === 'ingreso' ? '+' : '-'}${ARS(m.monto)}`,
+              `${m.monto >= 0 ? '+' : '-'}${ARS(Math.abs(m.monto))}`,
             ]),
       styles: { fontSize: 8.5, cellPadding: 2.2 },
       headStyles: { fillColor: [AZUL_OSCURO[0], AZUL_OSCURO[1], AZUL_OSCURO[2]], textColor: 255, fontStyle: 'bold' },
@@ -206,6 +206,8 @@ export interface DatosInformeContratistas {
   pagos: PagoContratista[];
   eventos: EventoContratista[];
   nombres: Record<string, string>;
+  /** Total pagado por trabajo (todos los pagos, sin filtro de fecha). */
+  pagadoTotalPorTrabajo?: Record<string, number>;
 }
 
 const fmtFechaCorta = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
@@ -409,7 +411,10 @@ export async function generarPDFInformeContratistas(d: DatosInformeContratistas)
   // ---------- KPIs (grilla 3+3) ----------
   const totalContratado = d.trabajos.reduce((a, t) => a + t.costo, 0);
   const totalPagado = d.pagos.reduce((a, p) => a + p.monto, 0);
-  const saldoPendiente = Math.max(0, totalContratado - totalPagado);
+  // Pendiente "al día": por trabajo del período, costo menos TODO lo pagado de ese trabajo.
+  const saldoPendiente = d.pagadoTotalPorTrabajo
+    ? d.trabajos.reduce((a, t) => a + Math.max(0, t.costo - (d.pagadoTotalPorTrabajo?.[t.id] || 0)), 0)
+    : Math.max(0, totalContratado - totalPagado);
   const totalArboles = d.trabajos.reduce((a, t) => a + (t.cantidad_arboles || 0), 0);
 
   const kpis: { label: string; valor: string; color: [number, number, number] }[] = [
@@ -462,16 +467,36 @@ export async function generarPDFInformeContratistas(d: DatosInformeContratistas)
   y += altoCard + 7;
 
   // ---------- Resumen por contratista ----------
-  const porContratista = new Map<string, { contratado: number; pagado: number; trabajos: number; pagos: number; arboles: number }>();
+  const porContratista = new Map<
+    string,
+    { contratado: number; pagado: number; trabajos: number; pagos: number; arboles: number; pendienteAcum: number }
+  >();
   for (const t of d.trabajos) {
-    const r = porContratista.get(t.contratista_id) || { contratado: 0, pagado: 0, trabajos: 0, pagos: 0, arboles: 0 };
+    const r =
+      porContratista.get(t.contratista_id) || {
+        contratado: 0,
+        pagado: 0,
+        trabajos: 0,
+        pagos: 0,
+        arboles: 0,
+        pendienteAcum: 0,
+      };
     r.contratado += t.costo;
     r.trabajos += 1;
     r.arboles += t.cantidad_arboles || 0;
+    r.pendienteAcum += d.pagadoTotalPorTrabajo ? Math.max(0, t.costo - (d.pagadoTotalPorTrabajo[t.id] || 0)) : t.costo;
     porContratista.set(t.contratista_id, r);
   }
   for (const p of d.pagos) {
-    const r = porContratista.get(p.contratista_id) || { contratado: 0, pagado: 0, trabajos: 0, pagos: 0, arboles: 0 };
+    const r =
+      porContratista.get(p.contratista_id) || {
+        contratado: 0,
+        pagado: 0,
+        trabajos: 0,
+        pagos: 0,
+        arboles: 0,
+        pendienteAcum: 0,
+      };
     r.pagado += p.monto;
     r.pagos += 1;
     porContratista.set(p.contratista_id, r);
@@ -481,7 +506,7 @@ export async function generarPDFInformeContratistas(d: DatosInformeContratistas)
       id,
       nombre: nom(id),
       ...r,
-      pendiente: Math.max(0, r.contratado - r.pagado),
+      pendiente: d.pagadoTotalPorTrabajo ? r.pendienteAcum : Math.max(0, r.contratado - r.pagado),
     }))
     .sort((a, b) => b.pagado - a.pagado || a.nombre.localeCompare(b.nombre));
 

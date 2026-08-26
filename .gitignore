@@ -12,3 +12,6 @@ coverage/
 .agents/
 .opencode/
 
+
+# Estado temporal CLI Supabase
+supabase/.temp/

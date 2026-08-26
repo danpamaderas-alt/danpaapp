@@ -114,11 +114,11 @@ export default function InformesView({ corredorId }: InformesViewProps) {
   }, [cargar]);
 
   const ingresos = useMemo(
-    () => movimientos.filter((m) => m.tipo === 'ingreso').reduce((a, m) => a + m.monto, 0),
+    () => movimientos.filter((m) => m.monto >= 0).reduce((a, m) => a + m.monto, 0),
     [movimientos]
   );
   const egresos = useMemo(
-    () => movimientos.filter((m) => m.tipo === 'egreso').reduce((a, m) => a + m.monto, 0),
+    () => movimientos.filter((m) => m.monto < 0).reduce((a, m) => a + Math.abs(m.monto), 0),
     [movimientos]
   );
   const saldo = useMemo(() => calcularSaldo(movimientos), [movimientos]);
@@ -413,7 +413,7 @@ export default function InformesView({ corredorId }: InformesViewProps) {
           <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] overflow-hidden no-print">
             <div className="px-6 py-5 border-b border-[var(--border)] flex justify-between items-center">
               <h3 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
-                {movimientos.some((m) => m.tipo === 'ingreso') ? <Scissors className="w-4 h-4 text-[var(--text2)]" /> : <BarChart3 className="w-4 h-4 text-[var(--text2)]" />}
+                {movimientos.some((m) => m.monto >= 0) ? <Scissors className="w-4 h-4 text-[var(--text2)]" /> : <BarChart3 className="w-4 h-4 text-[var(--text2)]" />}
                 Movimientos del mes
               </h3>
               <span className="text-sm text-[var(--text2)]">{movimientos.length}</span>
@@ -442,8 +442,8 @@ export default function InformesView({ corredorId }: InformesViewProps) {
                         <td className="px-6 py-3 text-[var(--text2)] text-sm whitespace-nowrap">{m.fecha}</td>
                         <td className="px-6 py-3 font-medium text-[var(--text)]">{m.concepto}</td>
                         <td className="px-6 py-3 text-sm text-[var(--text2)]">{etiquetaCategoria(m.categoria)}</td>
-                        <td className={`px-6 py-3 text-right font-semibold whitespace-nowrap ${m.tipo === 'ingreso' ? 'text-[var(--primary)]' : 'text-[var(--danger)]'}`}>
-                          {m.tipo === 'ingreso' ? '+' : '-'}{dinero(m.monto)}
+                        <td className={`px-6 py-3 text-right font-semibold whitespace-nowrap ${m.monto >= 0 ? 'text-[var(--primary)]' : 'text-[var(--danger)]'}`}>
+                          {m.monto >= 0 ? '+' : '-'}{dinero(Math.abs(m.monto))}
                         </td>
                       </tr>
                     ))

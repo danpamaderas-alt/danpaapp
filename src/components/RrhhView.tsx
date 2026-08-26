@@ -550,10 +550,9 @@ export default function RrhhView({ corredorId }: { corredorId: string }) {
       try {
         await crearMovimiento({
           corredor_id: corredorId,
-          tipo: 'egreso',
           concepto: `Sueldo ${emp?.nombre || 'empleado'} ${liq.periodo}`,
-          monto: liq.monto,
-          categoria: 'sueldos',
+          monto: -Math.abs(liq.monto),
+          categoria: 'Sueldos',
           fecha,
           notas: 'Liquidación de sueldo (RRHH)',
         });
