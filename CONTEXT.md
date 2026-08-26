@@ -1,6 +1,6 @@
 # Contexto del Proyecto - Danpa App
 
-## Estado Actual (2026-08-25)
+## Estado Actual (2026-08-26)
 
 ### CATÁSTROFE DE DATOS
 - Script `audit3b-exploit.js` borró las 4 cuentas auth → FK cascade eliminó todas las tablas de negocio
@@ -23,25 +23,28 @@
 - `usuarios`: 3 filas (Dan, Admin, Jorge)
 - `contratistas`: 2 filas (LUIS, prubeba)
 - `contratista_trabajos`: 2 filas (PODA $14M + poda $200)
-- `contratista_pagos`: 9 filas, $2.2M total
-- `contratista_eventos`: 9 filas historial de pagos
-- `movimientos`: 26 filas (3 ingresos $61,200 + 23 egresos -$2,564,651 = saldo -$2,503,451)
-- `productos`: 2 filas (PARA CABO, CABO)
-- RLS policies SELECT creadas en 16 tablas
+- `contratista_pagos`: 13 filas
+- `contratista_eventos`: 13 filas historial de pagos
+- `movimientos`: 30 filas (ingresos + egresos desde 11 PDFs)
+- `productos`: 1 fila (MADERITAS)
+- RLS policies completas en todas las tablas
+- **EXPORT COMPLETO**: `db-dump-full.sql` (schema + data + RLS + functions)
 
 ### Pendientes
-1. **App no carga en navegador** — "Failed to fetch" → resuelto: Worker ahora apunta a tmiaef (verificado)
-2. Esperar respuesta de Supabase support para restaurar vduqsxn
-3. ~70% de datos NO recuperables desde PDFs: pedidos(9), clientes(8), agenda, visitas, notificaciones, empleados, asistencias, movimientos pre-agosto, precios/stock
+1. Esperar respuesta de Supabase support para restaurar vduqsxn
+2. ~70% de datos NO recuperables desde PDFs: pedidos(9), clientes(8), agenda, visitas, notificaciones, empleados, asistencias, movimientos pre-agosto, precios/stock
+3. Crear tablas faltantes en tmiaef si se restauran datos (empleados, asistencias, licencias, agenda, visitas, liquidaciones, podas, recibos, contratos, cliente_notas)
 
 ### Credenciales
 - Ver archivo `.env` para Supabase URL y anon key
 - Ver gestor de contraseñas para PAT Supabase y GitHub
 
 ### Archivos Importantes
-- `recovery.sql` — SQL de reconstrucción desde PDFs
+- `recovery.sql` — SQL de reconstrucción desde PDFs (parcial)
+- `db-dump-full.sql` — **DUMP COMPLETO**: schema + data + RLS + functions (incluye todo lo recuperado)
 - `.env` — credenciales tmiaef
 - `wrangler.toml` — config Worker
+- `AUDITORIA.md` — informe de auditoría de seguridad
 - `src/components/ContratistasInforme.tsx` — filtro eventos edicion
 - `src/lib/supabase.ts` — cliente Supabase
 
