@@ -25,7 +25,13 @@ import {
   TrendingUp,
   TrendingDown,
   BadgeCheck,
+  FileText,
+  Settings,
+  Truck,
 } from 'lucide-react';
+import { generarFacturaPDF, generarRemitoPDF } from '../lib/facturaPdf';
+import { getConfigEmpresa } from '../lib/configEmpresa';
+import ConfigEmpresaModal from './ConfigEmpresaModal';
 
 type Pedido = Database['public']['Tables']['pedidos']['Row'];
 type Cliente = Database['public']['Tables']['clientes']['Row'];
@@ -51,6 +57,7 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<PedidoConDetalles | null>(null);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   useEffect(() => {
     if (!corredorId) return;
@@ -141,6 +148,18 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
 
   const diffDias = (f: Date, h: Date) =>
     Math.round((inicioDia(f).getTime() - inicioDia(h).getTime()) / 86400000);
+
+  const handleGenerarFactura = () => {
+    if (!selectedOrder) return;
+    const config = getConfigEmpresa();
+    generarFacturaPDF(selectedOrder, config);
+  };
+
+  const handleGenerarRemito = () => {
+    if (!selectedOrder) return;
+    const config = getConfigEmpresa();
+    generarRemitoPDF(selectedOrder, config);
+  };
 
   const eventosAgenda = useMemo(() => {
     const hoy = inicioDia(new Date());
@@ -453,7 +472,7 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-5">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <span
                   className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                     selectedOrder.estado === 'Entregado' ? 'bg-[var(--primary-soft)] text-[var(--primary-deep)]' : 'bg-[var(--blue-soft)] text-[var(--text)]'
@@ -469,6 +488,32 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
                 >
                   {selectedOrder.estado_pago === 'pagado' ? 'Pagado' : 'Pago pendiente'}
                 </span>
+
+                <div className="w-px h-6 bg-[var(--border)] self-center" />
+
+                <button
+                  onClick={handleGenerarFactura}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--primary)] text-white text-xs font-medium hover:bg-[var(--primary-deep)]"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Factura
+                </button>
+
+                <button
+                  onClick={handleGenerarRemito}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text2)] hover:bg-[var(--blue-header)]"
+                >
+                  <Truck className="w-3.5 h-3.5" />
+                  Remito
+                </button>
+
+                <button
+                  onClick={() => setShowConfigModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium text-[var(--text2)] hover:bg-[var(--blue-header)]"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Config
+                </button>
               </div>
 
               <div>
@@ -515,6 +560,10 @@ export default function Dashboard({ corredorId, onNavigate }: DashboardProps) {
             </div>
           </div>
         </Modal>
+      )}
+
+      {showConfigModal && (
+        <ConfigEmpresaModal onClose={() => setShowConfigModal(false)} />
       )}
     </div>
   );

@@ -13,7 +13,12 @@ import {
   Banknote,
   Truck,
   BadgeCheck,
+  FileText,
+  Settings,
 } from 'lucide-react';
+import { generarFacturaPDF, generarRemitoPDF } from '../lib/facturaPdf';
+import { getConfigEmpresa } from '../lib/configEmpresa';
+import ConfigEmpresaModal from './ConfigEmpresaModal';
 
 type Pedido = Database['public']['Tables']['pedidos']['Row'];
 type Cliente = Database['public']['Tables']['clientes']['Row'];
@@ -35,6 +40,7 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
   const [filtro, setFiltro] = useState('todos');
   const [selected, setSelected] = useState<PedidoConDetalles | null>(null);
   const [actualizando, setActualizando] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
   const fetchPedidos = async () => {
     try {
@@ -70,6 +76,18 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
     }
     setPedidos((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)));
     setSelected((prev) => (prev && prev.id === id ? { ...prev, ...patch } : prev));
+  };
+
+  const handleGenerarFactura = () => {
+    if (!selected) return;
+    const config = getConfigEmpresa();
+    generarFacturaPDF(selected, config);
+  };
+
+  const handleGenerarRemito = () => {
+    if (!selected) return;
+    const config = getConfigEmpresa();
+    generarRemitoPDF(selected, config);
   };
 
   const filtrados = filtro === 'todos'
@@ -256,6 +274,32 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
                     Marcar Pagado
                   </button>
                 )}
+
+                <div className="w-px h-8 bg-[var(--border)] self-center" />
+
+                <button
+                  onClick={handleGenerarFactura}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[var(--primary)] text-white text-sm font-medium hover:bg-[var(--primary-deep)]"
+                >
+                  <FileText className="w-4 h-4" />
+                  Generar Factura
+                </button>
+
+                <button
+                  onClick={handleGenerarRemito}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--blue-header)]"
+                >
+                  <Truck className="w-4 h-4" />
+                  Generar Remito
+                </button>
+
+                <button
+                  onClick={() => setShowConfigModal(true)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[var(--border)] text-sm font-medium text-[var(--text2)] hover:bg-[var(--blue-header)]"
+                >
+                  <Settings className="w-4 h-4" />
+                  Config. Empresa
+                </button>
               </div>
 
               <div>
@@ -302,6 +346,10 @@ export default function MisPedidos({ corredorId }: MisPedidosProps) {
             </div>
           </div>
         </Modal>
+      )}
+
+      {showConfigModal && (
+        <ConfigEmpresaModal onClose={() => setShowConfigModal(false)} />
       )}
     </div>
   );

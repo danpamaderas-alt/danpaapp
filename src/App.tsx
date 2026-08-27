@@ -133,7 +133,7 @@ export default function App() {
 
   useEffect(() => {
     if (!corredor?.activo) return;
-    const esAdminLocal = corredor.perfil === 'admin';
+    const esAdminLocal = corredor.perfil === 'admin' || corredor.perfil === 'master';
     const esGestionLocal = esAdminLocal || corredor.perfil === 'ventas';
     const soloAdmin = ['usuarios', 'rrhh', 'contratistas'] as View[];
     const soloGestion = ['productos', 'inventario', 'backup'] as View[];
@@ -288,7 +288,7 @@ export default function App() {
 
   const c = corredor!;
   const corredorId = c.id;
-  const esAdmin = c.perfil === 'admin';
+  const esAdmin = c.perfil === 'admin' || c.perfil === 'master';
   const esGestion = esAdmin || c.perfil === 'ventas';
 
   const seccionesMenu = [
